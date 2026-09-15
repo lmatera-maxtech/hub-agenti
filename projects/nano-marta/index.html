@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+
+<html lang="it">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport"/>
+<meta content="#1E1127" name="theme-color"/>
+<title>MaxTech · NANO Marta · Dashboard</title>
+<link href="assets/img/logo-maxtech.png" rel="icon"/>
+<link href="assets/css/base.css" rel="stylesheet"/>
+<link href="assets/css/tab-live.css" rel="stylesheet"/>
+<link href="assets/css/tab-dettaglio.css" rel="stylesheet"/>
+<link href="../../assets/css/maxtech-shell.css" rel="stylesheet"/>
+</head>
+<body class="project-nano-marta" data-project="nano-marta">
+<div class="maxtech-globalbar">
+  <a class="maxtech-home" href="../../index.html" aria-label="Torna a MaxTech AI Operations Hub">
+    <span class="maxtech-wordmark"><span class="max">MAX</span><span class="tech">TECH</span></span>
+    <span class="maxtech-hubname">AI Operations Hub</span>
+  </a>
+  <div class="maxtech-crumb"><span>Progetti</span><i>/</i><b>NANO Marta</b></div>
+  <a class="maxtech-back" href="../../index.html"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/><path d="M9 12h10"/></svg><span>Tutti gli agenti</span></a>
+</div>
+
+<div class="app">
+<!-- ============ header progetto ============ -->
+<header class="project-head">
+<div class="project-identity">
+<div class="project-kicker">Energy · Multi-agent</div>
+<h1>NANO Marta</h1>
+<p>Qualificazione inbound, verifica dati e handoff assistito a operatore.</p>
+</div>
+<div class="meta">
+<span class="pill" id="status">Collegamento…</span>
+<span class="freshness" id="fresh"><span id="updated">in attesa</span></span>
+<button aria-label="Aggiorna adesso" class="iconbtn" id="refresh" title="Aggiorna adesso"><svg class="ricon" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"></path><path d="M21 3v5h-5"></path></svg></button>
+<button aria-label="Schermo intero" class="iconbtn" id="fs" title="Schermo intero"><svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M8 21H5a2 2 0 0 1-2-2v-3M16 21h3a2 2 0 0 0 2-2v-3"></path></svg></button>
+</div>
+</header>
+<!-- ============ navigazione ============ -->
+<nav aria-label="Sezioni della dashboard" class="tabs" role="tablist">
+<button aria-controls="panelLive" aria-selected="true" class="tab" id="tabBtnLive" role="tab">Monitoraggio</button>
+<button aria-controls="panelDettaglio" aria-selected="false" class="tab" id="tabBtnDettaglio" role="tab">Analisi</button>
+</nav>
+<!-- ============ TAB 1 · Live Ops ============ -->
+<div aria-labelledby="tabBtnLive" class="panel" id="panelLive" role="tabpanel">
+<p class="context"><b>NANO Marta</b> è la prima voce AI dell'inbound energia: accoglie e qualifica il cliente, raccoglie e valida i dati di fornitura e trasferisce all'operatore la pratica predisposta. Consulenza, conversione e sottoscrizione restano in carico all'operatore.</p>
+<main class="stage">
+<div class="topright">
+<div class="lbadge"><span class="ldot"></span> LIVE</div>
+<div class="totbox">
+<div class="totlabel">Chiamate totali oggi</div>
+<div class="totval" id="totalCalls">—</div>
+<div class="totsub"><span id="shortCalls">—</span> sotto i 15s</div>
+</div>
+</div>
+<div class="glow"></div>
+<div class="sph">
+<div class="ring"></div><div class="ring"></div><div class="ring"></div><div class="ring"></div>
+<div class="ring"></div><div class="ring"></div><div class="ring"></div><div class="ring"></div>
+<div class="ring h"></div><div class="ring h2"></div><div class="ring h3"></div>
+</div>
+<div class="orb p1"></div><div class="orb p2"></div><div class="orb p3"></div>
+<div class="center">
+<div class="val" id="live">—</div>
+<div class="llabel">Chiamate in corso</div>
+<div class="lnote">gestite da NANO Marta in questo momento</div>
+</div>
+<div class="scan"></div>
+</main>
+<section class="livecalls">
+<div class="lc-head">
+<span class="lc-title">Chiamate in corso · andamento</span>
+<span class="lc-longest" id="lcSummary">—</span>
+</div>
+<div class="lc-bar" id="lcBar"></div>
+<div class="lc-legend2" id="lcDist"><span class="lc-empty">in attesa…</span></div>
+<div class="lc-legend" id="lcLegend"></div>
+</section>
+<section class="kpirow">
+<div class="kpi"><div class="klabel"><svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg>Media min · totali</div><div class="kval"><span id="avgAll">—</span><span class="u">min</span></div></div>
+<div class="kpi"><div class="klabel"><svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24"><path d="M4 8h13l-3-3M20 16H7l3 3"></path></svg>Media min · trasferite</div><div class="kval"><span id="avgTransf">—</span><span class="u">min</span></div></div>
+<div class="kpi"><div class="klabel"><svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24"><path d="M5 4h4l2 5-3 2a11 11 0 0 0 5 5l2-3 5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"></path></svg>Trasferimenti oggi</div><div class="kval" id="transfers">—</div></div>
+<div class="kpi"><div class="klabel"><svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8M16 11l2 2 4-4"></path></svg>Lead oggi</div><div class="kval" id="leads">—</div></div>
+</section>
+</div>
+<!-- ============ TAB 2 · Analisi NANO ============ -->
+<div aria-labelledby="tabBtnDettaglio" class="panel" hidden="" id="panelDettaglio" role="tabpanel">
+<section class="gate" hidden="" id="gate">
+<svg class="gate-lock" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.6" viewBox="0 0 24 24"><rect height="10" rx="2" width="16" x="4" y="10"></rect><path d="M8 10V7a4 4 0 0 1 8 0v3"></path></svg>
+<h2 class="gate-title">Sezione riservata</h2>
+<p class="gate-sub">Inserisci la password per accedere all'analisi NANO di chiamate, funnel e trasferimenti.</p>
+<div class="gate-form">
+<input aria-label="Password" autocomplete="current-password" class="gate-input" id="gatePwd" placeholder="Password" type="password"/>
+<button class="gate-btn" id="gateBtn">Entra</button>
+</div>
+<p class="gate-err" hidden="" id="gateErr">Password errata.</p>
+</section>
+<div class="gate-content analysis-shell" hidden="" id="dettaglioContent">
+<div class="analysis-toolbar">
+<div>
+<span class="analysis-eyebrow"></span>
+<h2>Analisi chiamate</h2>
+<p>Volumi, avanzamento nel multi-agent, handoff, blocchi ed errori.</p>
+</div>
+<div class="analysis-day-filter">
+<label for="analysisDate">Giorno</label>
+<input id="analysisDate" type="date"/>
+</div>
+</div>
+<nav aria-label="Navigazione analisi" class="analysis-mobile-nav">
+<button type="button" data-scroll="an-sec-calls">Chiamate</button>
+<button type="button" data-scroll="an-sec-funnel">Funnel</button>
+<button type="button" data-scroll="an-sec-blocks">Blocchi</button>
+<button type="button" data-scroll="an-sec-trend">Trend</button>
+</nav>
+<section class="analysis-section" id="an-sec-calls">
+<div class="analysis-sechead"><div class="analysis-sectitle"><h3>Chiamate</h3><p>Fotografia del giorno selezionato</p></div><p id="analysisDayLabel">—</p></div>
+<div class="analysis-grid5">
+<div class="analysis-card"><div class="analysis-label">Chiamate</div><div class="analysis-value" id="calls">—</div><div class="analysis-sub">Conversazioni NANO valide in Directus</div><span class="analysis-badge cert">Certificato</span></div>
+<div class="analysis-card"><div class="analysis-label">Durata media</div><div class="analysis-value" id="avgDuration">—</div><div class="analysis-sub">Solo chiamate con durata &gt; 0</div><span class="analysis-badge cert">Certificato</span></div>
+<div class="analysis-card"><div class="analysis-label">Arrivate a Valentina</div><div class="analysis-value" id="valentina">—</div><div class="analysis-sub" id="valentinaPct">—</div><span class="analysis-badge cert">Certificato</span></div>
+<div class="analysis-card"><div class="analysis-label">Arrivate a Marco</div><div class="analysis-value" id="marco">—</div><div class="analysis-sub" id="marcoPct">—</div><span class="analysis-badge cert">Certificato</span></div>
+<div class="analysis-card analysis-card-primary"><div class="analysis-label">Richieste operatore</div><div class="analysis-value" id="handoff">—</div><div class="analysis-sub" id="handoffPct">—</div><span class="analysis-badge cert">Certificato</span></div>
+</div>
+</section>
+<section class="analysis-section" id="an-sec-transfers">
+<div class="analysis-sechead"><div class="analysis-sectitle"><h3>Trasferimenti</h3><p>Esito delle richieste di handoff del giorno selezionato</p></div></div>
+<div class="analysis-grid4">
+<div class="analysis-card"><div class="analysis-label">Richieste operatore</div><div class="analysis-value" id="trRequested">—</div><div class="analysis-sub">Richiesta handoff avviata</div><span class="analysis-badge cert">Certificato</span></div>
+<div class="analysis-card"><div class="analysis-label">Trasferiti</div><div class="analysis-value" id="trCompleted">—</div><div class="analysis-sub">Marco transfer = success</div><span class="analysis-badge" id="trCompletedBadge">—</span></div>
+<div class="analysis-card"><div class="analysis-label">Lead · operatori occupati</div><div class="analysis-value" id="trLead">—</div><div class="analysis-sub">Failure con explanation “occupat…”</div><span class="analysis-badge" id="trLeadBadge">—</span></div>
+<div class="analysis-card"><div class="analysis-label">Altri fallimenti handoff</div><div class="analysis-value" id="trErrors">—</div><div class="analysis-sub" id="trErrorsSub">Failure non classificati come lead</div><span class="analysis-badge" id="trErrorsBadge">—</span></div>
+</div>
+<details class="analysis-transfer-note"><summary>Come leggiamo gli esiti handoff</summary><div id="transferNote">—</div></details>
+</section>
+<section class="analysis-section" id="an-sec-funnel">
+<div class="analysis-sechead"><div class="analysis-sectitle"><span class="analysis-viewtag">Avanzamento cumulativo</span><h3>Avanzamento nel funnel</h3><p>Quante chiamate raggiungono ciascuno step. Se una chiamata arriva a uno step avanzato, gli step precedenti risultano superati.</p></div></div>
+<div class="analysis-funnel" id="funnel"></div>
+</section>
+<section class="analysis-section analysis-break-section" id="an-sec-blocks">
+<div class="analysis-sechead analysis-break-head"><div class="analysis-sectitle"><span class="analysis-viewtag">Perdita tra step</span><h3>Punti di blocco</h3><p>Vista complementare al funnel: mostra dove le chiamate si fermano prima di raggiungere lo step successivo.</p></div></div>
+<div class="analysis-blockhero" id="blockHero"><div><div class="analysis-block-eyebrow">Blocco principale del giorno</div><div class="analysis-hero-title">—</div></div><div class="analysis-hero-stat"><b>—</b><span>chiamate perse</span></div><div class="analysis-hero-stat"><b>—</b><span>drop sullo step</span></div><div class="analysis-hero-stat"><b>—</b><span>quota dei no handoff</span></div></div>
+<div class="analysis-flowpanel"><div class="analysis-flowhead"><div>Passaggio</div><div>Perse</div><div>Drop step</div><div>Quota no handoff</div><div>Incidenza relativa</div></div><div id="dropList"></div></div>
+</section>
+<section class="analysis-section" id="an-sec-errors">
+<div class="analysis-sechead"><div class="analysis-sectitle"><h3>Errori</h3><p>Errori telefonici e stato corrente della pratica</p></div></div>
+<div class="analysis-errorgrid">
+<div class="analysis-errbox"><div class="analysis-errtop"><div><div class="analysis-label">Errori chiamata</div><strong id="callErrCount">—</strong></div><span id="callErrPct">—</span></div><div class="analysis-errlist" id="callErrList"></div></div>
+<div class="analysis-errbox"><div class="analysis-errtop"><div><div class="analysis-label">Pratiche attualmente in errore</div><strong id="practiceErrCount">—</strong></div><span>calls.error · stato mutabile</span></div><div class="analysis-errlist" id="practiceErrList"></div></div>
+</div>
+</section>
+<section class="analysis-section" id="an-sec-trend">
+<div class="analysis-sechead"><div class="analysis-sectitle"><span class="analysis-viewtag">Analisi temporale</span><h3>Andamento nel tempo</h3><p>Grafico, tabella e punti di blocco usano tutti lo stesso range selezionato.</p></div><p id="rangeLabel">—</p></div>
+<div class="analysis-rangebar">
+<div class="analysis-quick" id="quickRange">
+<button class="analysis-range-pill" data-days="3">Ultimi 3 giorni</button>
+<button class="analysis-range-pill active" data-days="7">Ultimi 7 giorni</button>
+<button class="analysis-range-pill" data-days="14">Ultimi 14 giorni</button>
+<button class="analysis-range-pill" data-days="30">Ultimi 30 giorni</button>
+<button class="analysis-range-pill" id="customToggle">Personalizzato</button>
+</div>
+<div class="analysis-custom-wrap">
+<div class="analysis-custom-panel" id="customPanel">
+<div class="analysis-custom-date"><span>Da</span><input id="rangeFrom" type="date"/></div>
+<div class="analysis-custom-date"><span>A</span><input id="rangeTo" type="date"/></div>
+<button class="analysis-applybtn" id="applyRange">Applica</button>
+</div>
+<span class="analysis-rangeinfo" id="rangeInfo">—</span>
+</div>
+</div>
+<div class="analysis-statsstrip" id="rangeKpis"></div>
+<div class="analysis-chartpanel" id="chartPanel">
+<div class="analysis-chart-top"><div class="analysis-chart-title"><strong>Volumi e conversione verso operatore</strong><span>Chiamate, richieste operatore e trasferimenti nel periodo</span></div><div class="analysis-legend"><span><i class="calls-dot"></i>Chiamate</span><span><i class="requests-dot"></i>Richieste operatore</span><span><i class="transferred-dot"></i>Trasferiti</span></div></div>
+<div class="analysis-chartscroll" id="chartScroll"><svg aria-label="Andamento chiamate, richieste operatore e trasferiti" id="trend" preserveaspectratio="xMidYMid meet" viewBox="0 0 1200 270"></svg></div>
+<div class="analysis-scrollhint">Scorri il grafico orizzontalmente ↔</div>
+<div class="analysis-charttip" id="chartTip"></div>
+</div>
+<div class="analysis-twocol">
+<div class="analysis-tablewrap"><table><thead><tr><th>Data</th><th>Chiamate</th><th>Richieste op.</th><th>% richieste / chiamate</th><th>Trasferiti</th><th>% trasferiti / richieste</th><th>Lead</th><th>% lead / richieste</th><th>Valentina</th><th>POD/PDR</th><th>Marco</th></tr></thead><tbody id="daysBody"></tbody></table></div>
+<div class="analysis-mobile-days" id="daysMobile"></div>
+<div class="analysis-rankpanel"><h4>Blocchi principali del periodo</h4><div class="analysis-note">Ordinati per incidenza sulle chiamate che non arrivano alla richiesta operatore.</div><div id="rangeBlocks"></div></div>
+</div>
+</section>
+<div class="analysis-quality-row"><button class="analysis-quality-btn" id="qualityBtn">Qualità dati</button><span class="analysis-quality-summary" id="qualitySummary">—</span></div>
+<div class="analysis-quality" id="quality"><ul id="qualityList"></ul></div>
+<div class="gate-lockrow"><button class="gate-lockbtn" id="gateLock">Blocca la sezione</button></div>
+</div>
+</div>
+<!-- ============ footer condiviso ============ -->
+<footer class="foot">
+<span>MaxTech · Sorgenti: ElevenLabs · n8n · Directus</span>
+<span id="mode">in collegamento</span>
+</footer>
+</div>
+<script src="assets/js/config.js"></script>
+<script src="assets/js/utils.js"></script>
+<script src="assets/js/tab-live.js"></script>
+<script src="assets/js/tab-dettaglio.js"></script>
+<script src="assets/js/app.js"></script>
+<script src="../../assets/js/maxtech-shell.js"></script>
+</body>
+</html>

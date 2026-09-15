@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#1E1127">
+  <title>MaxTech · Angela Screening</title>
+  <link rel="stylesheet" href="assets/css/base.css">
+  <link rel="stylesheet" href="../../assets/css/maxtech-shell.css">
+</head>
+<body class="project-angela" data-project="angela">
+<div class="maxtech-globalbar">
+  <a class="maxtech-home" href="../../index.html" aria-label="Torna a MaxTech AI Operations Hub">
+    <span class="maxtech-wordmark"><span class="max">MAX</span><span class="tech">TECH</span></span>
+    <span class="maxtech-hubname">AI Operations Hub</span>
+  </a>
+  <div class="maxtech-crumb"><span>Progetti</span><i>/</i><b>Angela</b></div>
+  <a class="maxtech-back" href="../../index.html"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/><path d="M9 12h10"/></svg><span>Tutti gli agenti</span></a>
+</div>
+
+<div class="app-shell">
+  <header class="project-head">
+    <div class="project-identity">
+      <div class="project-kicker">Screening · Outbound</div>
+      <h1>Angela</h1>
+      <p>Screening telefonico e classificazione strutturata dei numeri contattati.</p>
+    </div>
+    <div class="top-actions">
+      <span id="dataStatus" class="status-dot"><i></i><span>Caricamento</span></span>
+      <span id="freshness" class="freshness">—</span>
+      <button id="refreshBtn" class="icon-btn" aria-label="Aggiorna dati" title="Aggiorna dati">↻</button>
+    </div>
+  </header>
+
+  <nav class="tabs" aria-label="Sezioni dashboard">
+    <button class="tab-btn active" data-tab="monitoraggio">Monitoraggio</button>
+    <button class="tab-btn" data-tab="analisi">Analisi <span class="lock-mark" id="lockMark">●</span></button>
+  </nav>
+
+  <main>
+    <section id="tab-monitoraggio" class="tab-panel active" aria-labelledby="Monitoraggio">
+      <div class="section-head">
+        <div><div class="eyebrow">Oggi · Europe/Rome</div><h2>Come sta andando il sistema?</h2></div>
+        <div class="trust-chip">DB ONLY</div>
+      </div>
+      <div id="monitorAlert" class="alert hidden"></div>
+      <div id="monitorKpis" class="kpi-grid"></div>
+
+      <div class="grid two">
+        <article class="card hero-card">
+          <div class="card-head"><div><span class="eyebrow">Esiti tecnici</span><h3>Chiamate registrate oggi</h3></div><span class="badge cert">CERTIFICATO</span></div>
+          <div id="technicalBars" class="bars"></div>
+        </article>
+        <article class="card">
+          <div class="card-head"><div><span class="eyebrow">Perimetro dati</span><h3>Produzione vs test</h3></div><span class="badge cert">CERTIFICATO</span></div>
+          <div id="queueState" class="stack"></div>
+          <p class="note">I KPI manageriali includono solo record con <code>test_mode=false</code>. Test e ambiente non determinabile sono esclusi.</p>
+        </article>
+      </div>
+
+      <div class="grid two">
+        <article class="card"><div class="card-head"><div><span class="eyebrow">Classificazione conversazionale</span><h3>Chi ha risposto</h3></div><span class="badge eval">ANALISI</span></div><div id="respondentList" class="rank-list"></div></article>
+        <article class="card"><div class="card-head"><div><span class="eyebrow">Verdetto del tentativo</span><h3>Esito analitico dei completed</h3></div><span class="badge eval">ANALISI</span></div><div id="verdictDonut" class="donut-wrap"></div><p class="note">Verdetto prodotto dalla pipeline sul singolo tentativo completato; non è una ground truth e non è il <code>final_verdict</code> corrente di <code>mt_phone_catalog</code>.</p></article>
+      </div>
+
+      <article class="card data-quality-card">
+        <div class="card-head"><div><span class="eyebrow">Controllo operativo</span><h3>Qualità dati</h3></div><span class="badge muted">CHECK</span></div>
+        <div id="monitorQuality" class="quality-grid"></div>
+      </article>
+    </section>
+
+    <section id="tab-analisi" class="tab-panel" aria-labelledby="Analisi">
+      <div id="analysisLocked" class="lock-panel">
+        <div class="lock-icon">⌁</div><h2>Analisi protetta</h2>
+        <p>La protezione è client-side e serve solo a evitare accessi casuali alla vista analitica. Non sostituisce autenticazione server-side.</p>
+        <form id="unlockForm" class="unlock-form">
+          <label for="analysisPassword">Password</label>
+          <div class="input-row"><input id="analysisPassword" type="password" autocomplete="current-password" required><button type="submit" class="primary-btn">Sblocca</button></div>
+          <div id="unlockError" class="form-error"></div>
+        </form>
+      </div>
+
+      <div id="analysisContent" class="hidden">
+        <div class="section-head analysis-head">
+          <div><div class="eyebrow">Analisi periodo</div><h2>Dove funziona e dove si interrompe</h2></div>
+          <span class="badge cert">DB ONLY</span>
+        </div>
+        <div class="range-card">
+          <div class="quick-ranges" id="quickRanges"><button data-days="3">3 giorni</button><button data-days="7" class="active">7 giorni</button><button data-days="14">14 giorni</button><button data-days="30">30 giorni</button></div>
+          <div class="custom-range"><label>Da<input id="dateFrom" type="date"></label><label>A<input id="dateTo" type="date"></label><button id="applyRange" class="primary-btn">Applica</button></div>
+        </div>
+        <div id="analysisRangeUsed" class="note" style="margin:8px 0 2px">—</div>
+        <div id="analysisAlert" class="alert hidden"></div>
+        <div id="analysisKpis" class="kpi-grid"></div>
+
+        <div class="grid two analysis-grid">
+          <article class="card"><div class="card-head"><div><span class="eyebrow">Funnel chiamate</span><h3>Avanzamento classificazione</h3></div><span class="badge mixed">TECNICO + ANALISI</span></div><div id="funnel" class="funnel"></div><p class="note">Il funnel misura record di chiamata di produzione con <code>start_time</code> nel periodo, non clienti o journey.</p></article>
+          <article class="card blockers-card"><div class="card-head"><div><span class="eyebrow">Punti di blocco</span><h3>Dove si interrompe la classificazione</h3></div></div><div id="dropoffs" class="dropoffs"></div></article>
+        </div>
+
+        <article class="card chart-card"><div class="card-head"><div><span class="eyebrow">Andamento nel tempo</span><h3>Chiamate registrate, completed, spam</h3></div></div><div class="chart-legend"><span><i class="c1"></i>Registrate</span><span><i class="c2"></i>Completati</span><span><i class="c3"></i>Spam</span></div><div id="trendChart" class="chart-scroll"><svg id="trendSvg" role="img" aria-label="Grafico andamento nel tempo"></svg></div></article>
+
+        <div class="grid two">
+          <article class="card"><div class="card-head"><div><span class="eyebrow">Finalità rilevata</span><h3>Purpose (tutti gli outcome)</h3></div><span class="badge eval">ANALISI</span></div><div id="purposeList" class="rank-list"></div></article>
+          <article class="card"><div class="card-head"><div><span class="eyebrow">Categoria / settore rilevato</span><h3>Service category (tutti gli outcome)</h3></div><span class="badge eval">ANALISI</span></div><div id="serviceList" class="rank-list"></div></article>
+        </div>
+
+        <article class="card"><div class="card-head"><div><span class="eyebrow">Trend giornaliero</span><h3>Dettaglio periodo</h3></div></div><div class="table-wrap"><table><thead><tr><th>Data</th><th>Registrate</th><th>Completati</th><th>% complet.</th><th>Spam</th><th>% spam su completati</th><th>% respondent classificato</th></tr></thead><tbody id="trendTable"></tbody></table></div><div id="trendCards" class="trend-cards"></div></article>
+
+        <article class="card data-quality-card"><div class="card-head"><div><span class="eyebrow">Copertura</span><h3>Qualità dati</h3></div></div><div id="analysisQuality" class="quality-grid"></div></article>
+      </div>
+    </section>
+  </main>
+  <footer>MaxTech · Angela Screening · Runtime DB-only. KPI manageriali: solo <code>test_mode=false</code>; dataset incompleti falliscono senza mostrare numeri parziali.</footer>
+</div>
+<script src="assets/js/config.js"></script>
+<script src="assets/js/utils.js"></script>
+<script src="assets/js/monitoraggio.js"></script>
+<script src="assets/js/analisi.js"></script>
+<script src="assets/js/app.js"></script>
+<script src="../../assets/js/maxtech-shell.js"></script>
+</body></html>

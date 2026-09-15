@@ -1,0 +1,407 @@
+{
+  "name": "Dashboard Angela - Analisi - Reviewed V2",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "dashboard-angela-analisi",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "36249fb2-856f-4d1b-b595-c26ffd85f16b",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "2608b6b4-1d89-4d7e-aa3e-184cd2599dd3"
+    },
+    {
+      "parameters": {
+        "jsCode": "const q=$('Webhook').first().json.query||{};const zone='Europe/Rome';let to=q.to?DateTime.fromISO(q.to,{zone}):DateTime.now().setZone(zone);let from=q.from?DateTime.fromISO(q.from,{zone}):to.minus({days:6});let error=null;if(!from.isValid||!to.isValid)error='Date non valide';if(!error&&from>to)error='La data iniziale è successiva alla finale';const days=!error?Math.floor(to.startOf('day').diff(from.startOf('day'),'days').days)+1:0;if(!error&&days>90)error='Range massimo: 90 giorni';return [{json:{valid:!error,error,from_local:from.toISODate(),to_local:to.toISODate(),from_utc:from.startOf('day').toUTC().toISO(),to_utc:to.endOf('day').toUTC().toISO(),days}}];"
+      },
+      "id": "9e7a19ff-ab36-4498-a134-b4a63ca61a09",
+      "name": "Validate Range",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "baf823f7-6c97-4f69-a2f6-5fab0b99e3a6",
+              "leftValue": "={{ $json.valid }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "3a9c68bd-4a1c-46f9-895a-6762e02a4b9c",
+      "name": "Range Valid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        440,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ok:false,error:$json.error,error_code:\"INVALID_RANGE\"}) }}",
+        "options": {
+          "responseCode": 400,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              },
+              {
+                "name": "Cache-Control",
+                "value": "no-store"
+              },
+              {
+                "name": "Content-Type",
+                "value": "application/json; charset=utf-8"
+              }
+            ]
+          }
+        }
+      },
+      "id": "cccde7e4-dd1f-45e8-a127-15a20b53f0a3",
+      "name": "Respond Bad Range",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        680,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{$env.DIRECTUS_ENDPOINT}}/items/mt_call_attempts?fields=call_status,respondent_type,purpose,service_category,call_duration_seconds,start_time,verdict,test_mode,phone_catalog_id&filter[start_time][_gte]={{ $('Validate Range').item.json.from_utc }}&filter[start_time][_lte]={{ $('Validate Range').item.json.to_utc }}&sort=start_time&limit=-1",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{$env.DIRECTUS_TOKEN}}"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          },
+          "timeout": 15000
+        }
+      },
+      "id": "61dc5f92-2a06-4f83-b222-6c3ede807414",
+      "name": "Attempts Range",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        680,
+        -100
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "url": "={{$env.DIRECTUS_ENDPOINT}}/items/mt_call_attempts?aggregate[count]=id&filter[start_time][_gte]={{ $('Validate Range').item.json.from_utc }}&filter[start_time][_lte]={{ $('Validate Range').item.json.to_utc }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{$env.DIRECTUS_TOKEN}}"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          },
+          "timeout": 15000
+        }
+      },
+      "id": "1ccd43a2-7c64-441d-8f26-b67c49704dd8",
+      "name": "Count Range",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        680,
+        20
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {}
+      },
+      "id": "915f11ba-02bc-46bf-aea0-7c297bd2a814",
+      "name": "Wait for Queries",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        900,
+        -60
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const dataRaw=$('Attempts Range').first().json||{};\nconst countRaw=$('Count Range').first().json||{};\nconst rowsAll=Array.isArray(dataRaw.data)?dataRaw.data:null;\nconst countRows=Array.isArray(countRaw.data)?countRaw.data:null;\nconst expected=countRows?.[0]?.count?.id;\nconst meta=$('Validate Range').first().json;\nif(!rowsAll || expected===undefined || expected===null){\n  return [{json:{ok:false,error:'Directus non ha restituito una risposta valida. Nessun KPI viene calcolato.',error_code:'DB_RESPONSE_INVALID'}}];\n}\nconst expectedN=Number(expected||0);\nif(rowsAll.length!==expectedN){\n  return [{json:{ok:false,error:`Dataset parziale: ricevute ${rowsAll.length} righe su ${expectedN}. Nessun KPI viene calcolato.`,error_code:'DATASET_TRUNCATED',rows_returned:rowsAll.length,rows_expected:expectedN}}];\n}\nconst prodVal=v=>v===false||v===0||String(v).toLowerCase()==='false';\nconst testVal=v=>v===true||v===1||String(v).toLowerCase()==='true';\nconst rows=rowsAll.filter(a=>prodVal(a.test_mode));\nconst testCount=rowsAll.filter(a=>testVal(a.test_mode)).length;\nconst envUnknown=rowsAll.length-rows.length-testCount;\nconst div=(a,b)=>b?a/b:null;\nconst bump=(o,k)=>{const key=(k===null||k===undefined||String(k).trim()==='')?'missing':String(k);o[key]=(o[key]||0)+1};\nconst validRespondent=v=>['human','ivr','ai_voice','voicemail'].includes(String(v||'').toLowerCase());\nconst purposeAnalysisAvailable=v=>!['','unknown','unkown'].includes(String(v??'').trim().toLowerCase());\nconst purposeDetermined=v=>['commercial','support','private','reception'].includes(String(v||'').toLowerCase());\nconst serviceDetermined=v=>!['','unknown','unkown','none'].includes(String(v??'').trim().toLowerCase());\nconst purpose={},service_category={};let completed=0,spam=0,rOk=0,pAnalysis=0,pDetermined=0,sDetermined=0;const buckets={};\nfor(let dt=DateTime.fromISO(meta.from_local,{zone:'Europe/Rome'});dt<=DateTime.fromISO(meta.to_local,{zone:'Europe/Rome'});dt=dt.plus({days:1}))buckets[dt.toISODate()]={date:dt.toISODate(),calls_registered:0,completed:0,spam:0,respondent_ok:0};\nfor(const a of rows){\n  const dt=DateTime.fromISO(a.start_time,{setZone:true});\n  const local=dt.isValid?dt.setZone('Europe/Rome').toISODate():null;\n  const b=local?buckets[local]:null;if(b)b.calls_registered++;\n  if(a.call_status!=='completed')continue;\n  completed++;if(b)b.completed++;\n  bump(purpose,a.purpose);bump(service_category,a.service_category);\n  if(a.verdict==='spam'){spam++;if(b)b.spam++;}\n  const rok=validRespondent(a.respondent_type);const pa=purposeAnalysisAvailable(a.purpose);const pd=rok&&purposeDetermined(a.purpose);const sd=pd&&serviceDetermined(a.service_category);\n  if(rok){rOk++;if(b)b.respondent_ok++;}if(pa)pAnalysis++;if(pd)pDetermined++;if(sd)sDetermined++;\n}\nconst steps=[['Chiamate con start_time registrato',rows.length,'A'],['Conversazioni completate',completed,'A'],['Interlocutore determinato',rOk,'B'],['Finalità determinata',pDetermined,'B'],['Categoria/settore determinata',sDetermined,'B']];\nconst funnel=steps.map((s,i)=>({label:s[0],count:s[1],reliability:s[2],of_total:div(s[1],steps[0][1]),of_previous:i?div(s[1],steps[i-1][1]):1,drop:i?steps[i-1][1]-s[1]:0,drop_rate:i?div(steps[i-1][1]-s[1],steps[i-1][1]):0}));\nconst dropoff=funnel.slice(1).map((s,i)=>({label:i===0?'Esito tecnico diverso da completed':`${s.label}: non determinato`,drop:s.drop,drop_rate:s.drop_rate,of_total:div(s.drop,steps[0][1])}));\nconst trend=Object.values(buckets).map(b=>({...b,attempts:b.calls_registered,completed_rate:div(b.completed,b.calls_registered),spam_rate_completed:div(b.spam,b.completed),respondent_coverage:div(b.respondent_ok,b.completed)}));\nconst warnings=[];if(envUnknown>0)warnings.push(`${envUnknown} record nel periodo hanno ambiente non certificabile e sono esclusi dai KPI produzione.`);\nreturn [{json:{ok:true,generated_at:new Date().toISOString(),range:{from:meta.from_local,to:meta.to_local,days:meta.days,timezone:'Europe/Rome',basis:'mt_call_attempts.start_time'},scope:{production_rule:'test_mode === false',production_rows:rows.length,test_rows_excluded:testCount,environment_unknown_excluded:envUnknown,total_rows_in_range:rowsAll.length},macro:{attempts:rows.length,completed,completed_rate:div(completed,rows.length),spam,spam_rate_completed:div(spam,completed),respondent_coverage:div(rOk,completed),purpose_analysis_available_rate:div(pAnalysis,completed),purpose_determined_rate:div(pDetermined,completed),service_determined_rate:div(sDetermined,completed)},funnel,dropoff,purpose,service_category,trend,data_quality:{respondent_missing:completed-rOk,purpose_analysis_missing:completed-pAnalysis,purpose_not_determined:completed-pDetermined,service_not_determined:completed-sDetermined,test_excluded:testCount,environment_unknown:envUnknown},source_integrity:{rows_expected:expectedN,rows_returned:rowsAll.length,complete:true},warnings}}];"
+      },
+      "id": "2b30ef14-f904-4de1-8ea8-b349585c435d",
+      "name": "Aggregate Analysis",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1120,
+        -60
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "91172025-c8e6-46e9-bf76-08d9f7a4f02a",
+              "leftValue": "={{ $json.ok }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "0b3d4bc6-12c7-4961-8bed-72c49adca476",
+      "name": "Data Valid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1340,
+        -60
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "responseCode": 200,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              },
+              {
+                "name": "Cache-Control",
+                "value": "no-store"
+              },
+              {
+                "name": "Content-Type",
+                "value": "application/json; charset=utf-8"
+              }
+            ]
+          }
+        }
+      },
+      "id": "3a7f6b27-1e28-481a-9724-cf79e9480088",
+      "name": "Respond OK",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        1580,
+        -130
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "responseCode": 503,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              },
+              {
+                "name": "Cache-Control",
+                "value": "no-store"
+              },
+              {
+                "name": "Content-Type",
+                "value": "application/json; charset=utf-8"
+              }
+            ]
+          }
+        }
+      },
+      "id": "f990ed2a-6312-416c-91af-5b5f603214db",
+      "name": "Respond Error",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        1580,
+        20
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Validate Range",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Range": {
+      "main": [
+        [
+          {
+            "node": "Range Valid?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Range Valid?": {
+      "main": [
+        [
+          {
+            "node": "Attempts Range",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Count Range",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Bad Range",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Attempts Range": {
+      "main": [
+        [
+          {
+            "node": "Wait for Queries",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Count Range": {
+      "main": [
+        [
+          {
+            "node": "Wait for Queries",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Wait for Queries": {
+      "main": [
+        [
+          {
+            "node": "Aggregate Analysis",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate Analysis": {
+      "main": [
+        [
+          {
+            "node": "Data Valid?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Data Valid?": {
+      "main": [
+        [
+          {
+            "node": "Respond OK",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "cbf971e5-cb6c-4886-952c-c0184031abae",
+  "meta": null,
+  "tags": []
+}

@@ -1,0 +1,323 @@
+{
+  "name": "Dashboard Angela - Monitoraggio - Reviewed V2",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "dashboard-angela-monitoraggio",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "29845db6-a6bd-418e-a271-f477e94dd055",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "a45519f9-5178-4975-adcc-95bca89fcc8d"
+    },
+    {
+      "parameters": {
+        "jsCode": "const now=DateTime.now().setZone('Europe/Rome');\nreturn [{json:{day_start:now.startOf('day').toUTC().toISO(),day_end:now.endOf('day').toUTC().toISO(),local_date:now.toISODate()}}];"
+      },
+      "id": "78fb8edf-481c-4e92-bfb7-a53bf7a5ea11",
+      "name": "Prepare Today",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{$env.DIRECTUS_ENDPOINT}}/items/mt_call_attempts?fields=call_status,respondent_type,purpose,service_category,call_duration_seconds,start_time,verdict,test_mode,phone_catalog_id&filter[start_time][_gte]={{ $('Prepare Today').item.json.day_start }}&filter[start_time][_lte]={{ $('Prepare Today').item.json.day_end }}&sort=-start_time&limit=-1",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{$env.DIRECTUS_TOKEN}}"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          },
+          "timeout": 15000
+        }
+      },
+      "id": "69924bed-3d70-4ee0-bdfa-9f1baba67489",
+      "name": "Attempts Today",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        450,
+        -90
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "url": "={{$env.DIRECTUS_ENDPOINT}}/items/mt_call_attempts?aggregate[count]=id&filter[start_time][_gte]={{ $('Prepare Today').item.json.day_start }}&filter[start_time][_lte]={{ $('Prepare Today').item.json.day_end }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{$env.DIRECTUS_TOKEN}}"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          },
+          "timeout": 15000
+        }
+      },
+      "id": "00a63945-0da7-4bf7-a1a1-3590d0cb65d3",
+      "name": "Count Today",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        450,
+        90
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {}
+      },
+      "id": "922081a3-2baa-431b-b3e1-8aebfdae58db",
+      "name": "Wait for Queries",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        690,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const attemptsRaw=$('Attempts Today').first().json||{};\nconst countRaw=$('Count Today').first().json||{};\nconst rows=Array.isArray(attemptsRaw.data)?attemptsRaw.data:null;\nconst countRows=Array.isArray(countRaw.data)?countRaw.data:null;\nconst expected=countRows?.[0]?.count?.id;\nif(!rows || expected===undefined || expected===null){\n  return [{json:{ok:false,error:'Directus non ha restituito una risposta valida. Nessun KPI viene calcolato.',error_code:'DB_RESPONSE_INVALID'}}];\n}\nconst expectedN=Number(expected||0);\nif(rows.length!==expectedN){\n  return [{json:{ok:false,error:`Dataset parziale: ricevute ${rows.length} righe su ${expectedN}. Nessun KPI viene calcolato.`,error_code:'DATASET_TRUNCATED',rows_returned:rows.length,rows_expected:expectedN}}];\n}\nconst prodVal=v=>v===false||v===0||String(v).toLowerCase()==='false';\nconst testVal=v=>v===true||v===1||String(v).toLowerCase()==='true';\nconst prod=rows.filter(a=>prodVal(a.test_mode));\nconst testCount=rows.filter(a=>testVal(a.test_mode)).length;\nconst envUnknown=rows.length-prod.length-testCount;\nconst bump=(o,k)=>{const key=(k===null||k===undefined||String(k).trim()==='')?'missing':String(k);o[key]=(o[key]||0)+1};\nconst validRespondent=v=>['human','ivr','ai_voice','voicemail'].includes(String(v||'').toLowerCase());\nconst purposeAnalysisAvailable=v=>!['','unknown','unkown'].includes(String(v??'').trim().toLowerCase());\nconst purposeDetermined=v=>['commercial','support','private','reception'].includes(String(v||'').toLowerCase());\nconst serviceDetermined=v=>!['','unknown','unkown','none'].includes(String(v??'').trim().toLowerCase());\nconst div=(a,b)=>b?a/b:null;\nconst technical={},respondent={},attemptVerdicts={};\nlet completed=0,spam=0,dur=0,durN=0,rOk=0,pAnalysis=0,pDetermined=0,sDetermined=0;\nfor(const a of prod){\n  bump(technical,a.call_status||'unknown');\n  if(a.call_status!=='completed') continue;\n  completed++;\n  bump(respondent,a.respondent_type||'unknown');\n  bump(attemptVerdicts,a.verdict||'undecided');\n  if(a.verdict==='spam') spam++;\n  const d=Number(a.call_duration_seconds);if(Number.isFinite(d)&&d>0){dur+=d;durN++;}\n  if(validRespondent(a.respondent_type)) rOk++;\n  if(purposeAnalysisAvailable(a.purpose)) pAnalysis++;\n  if(validRespondent(a.respondent_type)&&purposeDetermined(a.purpose)) pDetermined++;\n  if(validRespondent(a.respondent_type)&&purposeDetermined(a.purpose)&&serviceDetermined(a.service_category)) sDetermined++;\n}\nconst warnings=[];\nif(envUnknown>0) warnings.push(`${envUnknown} record nel giorno hanno ambiente non certificabile e sono esclusi dai KPI produzione.`);\nreturn [{json:{\n  ok:true,generated_at:new Date().toISOString(),\n  range:{timezone:'Europe/Rome',basis:'mt_call_attempts.start_time',local_date:$('Prepare Today').first().json.local_date},\n  scope:{production_rule:'test_mode === false',production_rows:prod.length,test_rows_excluded:testCount,environment_unknown_excluded:envUnknown,total_rows_in_range:rows.length},\n  macro:{calls_registered_today:prod.length,completed_today:completed,completed_rate:div(completed,prod.length),avg_duration_sec:durN?dur/durN:null,spam_rate_completed:div(spam,completed)},\n  technical,respondent,attempt_verdicts:attemptVerdicts,\n  data_quality:{respondent_determined_rate:div(rOk,completed),purpose_analysis_available_rate:div(pAnalysis,completed),purpose_determined_rate:div(pDetermined,completed),service_determined_rate:div(sDetermined,completed),respondent_missing:completed-rOk,purpose_analysis_missing:completed-pAnalysis,purpose_not_determined:completed-pDetermined,service_not_determined:completed-sDetermined,environment_unknown:envUnknown,test_excluded:testCount},\n  source_integrity:{rows_expected:expectedN,rows_returned:rows.length,complete:true},warnings\n}}];"
+      },
+      "id": "9c4d900f-0365-4a50-89f0-d628935ade72",
+      "name": "Aggregate Monitor",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        900,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "bbd9385d-8379-4df1-a542-aa3208cae089",
+              "leftValue": "={{ $json.ok }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "bbfc7386-55de-48a9-8e26-c0dd37162ef4",
+      "name": "Data Valid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1120,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "responseCode": 200,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              },
+              {
+                "name": "Cache-Control",
+                "value": "no-store"
+              },
+              {
+                "name": "Content-Type",
+                "value": "application/json; charset=utf-8"
+              }
+            ]
+          }
+        }
+      },
+      "id": "66cb23e9-a003-4370-aaef-d6be8fc8cd36",
+      "name": "Respond OK",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        1360,
+        -80
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "responseCode": 503,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              },
+              {
+                "name": "Cache-Control",
+                "value": "no-store"
+              },
+              {
+                "name": "Content-Type",
+                "value": "application/json; charset=utf-8"
+              }
+            ]
+          }
+        }
+      },
+      "id": "0a793c79-b656-405b-a340-2a3a18c12b38",
+      "name": "Respond Error",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        1360,
+        100
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Prepare Today",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Today": {
+      "main": [
+        [
+          {
+            "node": "Attempts Today",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Count Today",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Attempts Today": {
+      "main": [
+        [
+          {
+            "node": "Wait for Queries",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Count Today": {
+      "main": [
+        [
+          {
+            "node": "Wait for Queries",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Wait for Queries": {
+      "main": [
+        [
+          {
+            "node": "Aggregate Monitor",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate Monitor": {
+      "main": [
+        [
+          {
+            "node": "Data Valid?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Data Valid?": {
+      "main": [
+        [
+          {
+            "node": "Respond OK",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "ef9a1c5a-3aa9-4c99-b04f-fa5cc66e2920",
+  "meta": null,
+  "tags": []
+}

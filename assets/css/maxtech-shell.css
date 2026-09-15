@@ -1,0 +1,35 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Sora:wght@500;600;700;800&display=swap');
+
+/* Shared MaxTech shell. It only styles frontend chrome; project data logic stays untouched. */
+:root{--hub-bg:#1E1127;--hub-deep:#100617;--hub-panel:#281832;--hub-text:#F3EDF4;--hub-muted:#C7ABC1;--hub-faint:#8B6D85;--hub-line:rgba(199,171,193,.15);--hub-brand:#E606E1;--hub-brand2:#BA33C8;--project-accent:#E606E1}
+body.project-nano-marta,body.project-angela{display:block!important;}
+body{background:radial-gradient(1100px 620px at 50% -12%,rgba(186,51,200,.17),transparent 62%),linear-gradient(180deg,#1d1026 0%,#150a1d 70%,#100617 100%)!important;color:var(--hub-text);font-family:'Inter',system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif!important}
+.maxtech-globalbar{width:min(1320px,calc(100% - 28px));margin:max(10px,env(safe-area-inset-top)) auto 12px;min-height:56px;padding:8px 12px;display:flex;align-items:center;justify-content:space-between;gap:16px;border:1px solid rgba(255,255,255,.075);border-radius:15px;background:rgba(24,11,32,.72);backdrop-filter:blur(16px);box-shadow:0 16px 44px rgba(5,2,8,.16);position:sticky;top:max(8px,env(safe-area-inset-top));z-index:110}
+.maxtech-home{display:flex;align-items:center;gap:12px;min-width:0;color:var(--hub-text);text-decoration:none}.maxtech-wordmark{font-family:'Sora',sans-serif;font-size:17px;font-weight:800;letter-spacing:-.035em;white-space:nowrap}.maxtech-wordmark .max{color:transparent;-webkit-text-stroke:1.15px var(--hub-brand)}.maxtech-wordmark .tech{color:var(--hub-text)}.maxtech-hubname{font-size:9px;letter-spacing:.17em;text-transform:uppercase;color:var(--hub-faint);padding-left:11px;border-left:1px solid var(--hub-line);white-space:nowrap}
+.maxtech-crumb{display:flex;align-items:center;gap:8px;min-width:0;font-size:11px;color:var(--hub-faint)}.maxtech-crumb b{color:var(--hub-text);font-family:'Sora',sans-serif;font-size:11px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.maxtech-crumb i{font-style:normal;color:rgba(255,255,255,.22)}
+.maxtech-back{display:inline-flex;align-items:center;gap:7px;min-height:42px;padding:0 11px;border:1px solid var(--hub-line);border-radius:10px;color:var(--hub-muted);text-decoration:none;font-size:10.5px;font-weight:600;background:rgba(255,255,255,.025);white-space:nowrap}.maxtech-back:hover{color:#fff;border-color:rgba(230,6,225,.48);background:rgba(230,6,225,.07)}.maxtech-back svg{width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2}
+
+/* project containers */
+body.project-nano-marta{--project-accent:#A95CFF}body.project-angela{--project-accent:#FF5EA8}
+body.project-nano-marta .app,body.project-angela .app-shell{width:min(1280px,calc(100% - 28px));max-width:1280px!important;margin:0 auto!important;padding:0 0 max(26px,env(safe-area-inset-bottom))!important}
+.project-head{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:18px 20px;border:1px solid rgba(255,255,255,.075);border-radius:18px;background:linear-gradient(180deg,rgba(255,255,255,.045),rgba(255,255,255,.018));box-shadow:0 18px 48px rgba(6,2,9,.12);margin-bottom:12px}.project-identity{min-width:0}.project-kicker{font-size:9.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--project-accent);font-weight:700;margin-bottom:4px}.project-head h1{font-family:'Sora',sans-serif!important;font-size:clamp(22px,3vw,29px)!important;letter-spacing:-.04em!important;line-height:1.08!important;margin:0!important;color:#fff}.project-head p{font-size:11.5px;color:var(--hub-faint);margin:6px 0 0;line-height:1.45}
+.project-head .meta,.project-head .top-actions{margin-left:auto;justify-content:flex-end}
+
+/* tabs share the same visual language */
+body.project-nano-marta .tabs,body.project-angela .tabs{display:flex!important;gap:5px!important;position:sticky!important;top:78px!important;z-index:70!important;padding:7px!important;margin:0 0 16px!important;border:1px solid rgba(255,255,255,.075)!important;border-radius:14px!important;background:rgba(25,11,33,.90)!important;backdrop-filter:blur(15px)!important;box-shadow:0 14px 38px rgba(4,2,7,.10)!important}
+body.project-nano-marta .tab,body.project-angela .tab-btn{border:1px solid transparent!important;border-radius:9px!important;min-height:44px!important;padding:9px 14px!important;font-family:'Inter',sans-serif!important;font-size:11.5px!important;font-weight:700!important;color:var(--hub-faint)!important;background:transparent!important;text-decoration:none!important}
+body.project-nano-marta .tab[aria-selected='true'],body.project-angela .tab-btn.active{color:#fff!important;background:color-mix(in srgb,var(--project-accent) 13%,transparent)!important;border-color:color-mix(in srgb,var(--project-accent) 38%,transparent)!important;box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--project-accent) 5%,transparent)!important}
+body.project-nano-marta .tab:hover,body.project-angela .tab-btn:hover{color:var(--hub-muted)!important}
+
+/* calm, common surface language */
+body.project-nano-marta .stage,body.project-nano-marta .livecalls,body.project-nano-marta .kpi,body.project-nano-marta .analysis-card,body.project-nano-marta .analysis-chartpanel,body.project-nano-marta .analysis-flowpanel,body.project-nano-marta .analysis-errbox,body.project-nano-marta .analysis-rankpanel,
+body.project-angela .card,body.project-angela .kpi,body.project-angela .range-card,body.project-angela .lock-panel{border-color:rgba(199,171,193,.13)!important;box-shadow:0 16px 44px rgba(5,2,8,.10)}
+body.project-nano-marta .kpi::before{background:var(--project-accent)!important}.project-nano-marta .context b{color:var(--project-accent)!important}
+body.project-angela .trust-chip,body.project-angela .badge.eval{border-color:rgba(255,94,168,.24)!important}
+
+/* typography consistency */
+body.project-nano-marta h2,body.project-nano-marta h3,body.project-angela h2,body.project-angela h3{font-family:'Sora',sans-serif;letter-spacing:-.025em}
+body.project-nano-marta footer,body.project-angela footer{border-top:1px solid rgba(255,255,255,.06);padding-top:14px!important;margin-top:8px;color:var(--hub-faint)!important}
+
+@media(max-width:720px){.maxtech-globalbar{width:min(100% - 20px,1320px);min-height:52px;padding:7px 9px;top:max(6px,env(safe-area-inset-top))}.maxtech-hubname{display:none}.maxtech-crumb span,.maxtech-crumb i{display:none}.maxtech-back span{display:none}.maxtech-back{width:44px;min-height:44px;padding:0;justify-content:center}.project-head{padding:14px 14px;align-items:flex-start;flex-direction:column}.project-head .meta,.project-head .top-actions{margin-left:0;width:100%;justify-content:flex-start;flex-wrap:wrap}.project-head p{max-width:92%}body.project-nano-marta .tabs,body.project-angela .tabs{top:69px!important;overflow-x:auto;scrollbar-width:none}.tabs::-webkit-scrollbar{display:none}}
+@media(prefers-reduced-motion:reduce){.maxtech-globalbar,*{scroll-behavior:auto!important}}

@@ -1,0 +1,22 @@
+# Checklist pre-go-live — Reviewed V2
+
+- [ ] Verifica timezone n8n / start_time con sample indicato in REVIEW_V1.md **BLOCCANTE**
+- [ ] Conferma che i KPI produzione includano solo `test_mode=false`
+- [ ] Verifica su un range con test_mode=true: il record deve comparire solo come “test escluso”
+- [ ] Verifica su un record test_mode null: deve essere escluso e segnalato
+- [ ] Simula risposta DB invalida: nessun KPI, errore 503
+- [ ] Simula dataset troncato/count mismatch: nessun KPI, errore 503
+- [ ] Zero righe reali: mostra 0, non N/D
+- [ ] Purpose `unidentifiable`: deve apparire nella distribuzione ma NON in “finalità determinata”
+- [ ] Purpose `none`: deve apparire nella distribuzione ma NON essere contato come analysis mancante
+- [ ] service_category `unknown`/`none`: visibile nella distribuzione e non contato come settore determinato
+- [ ] Funnel monotono e drop = previous-current
+- [ ] Quick range intorno a mezzanotte Europe/Rome
+- [ ] Range 3/7/14/30 e custom max 90
+- [ ] Fallimento di un nuovo range: banner deve dichiarare se i dati visibili appartengono al range precedente
+- [ ] Mobile Safari / desktop Chrome+Safari
+- [ ] Nessun secret/token hardcoded
+- [ ] Validazione campione umano per spam/purpose/service prima di interpretare le metriche ANALISI come ground truth
+- [ ] Allineamento descrizione/enum `service_category` nell’agente ElevenLabs
+- [ ] Esportazione/revisione contenuti Data Table di scoring (`dim_indicator_mt`, `dim_call_purpose_mt`, `dim_service_category_mt`)
+- [ ] Riconciliazione manuale su almeno 1 giorno: conteggio raw Directus `test_mode=false` vs dashboard (registrate/completed/verdict spam)

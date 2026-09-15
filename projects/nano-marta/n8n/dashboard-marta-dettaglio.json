@@ -1,0 +1,233 @@
+{
+  "name": "Marta Dashboard - Tab Analisi NANO v1.7",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "dashboard-marta-nano",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "71fc7e42-a2a9-447f-8a44-ef1b335e6ab5",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -1248,
+        0
+      ],
+      "webhookId": "95899e3a-0d9e-48d6-b7fb-7aca87615c3d"
+    },
+    {
+      "parameters": {
+        "jsCode": "const TZ = 'Europe/Rome';\nconst webhook = $('Webhook').first().json || {};\nconst q = webhook.query || {};\n\nfunction clean(v){\n  const s = String(v ?? '').trim();\n  return ['undefined','null','[object object]'].includes(s.toLowerCase()) ? '' : s;\n}\nfunction partsInTz(date, timeZone){\n  const out = {};\n  new Intl.DateTimeFormat('en-CA', {\n    timeZone,\n    year:'numeric', month:'2-digit', day:'2-digit',\n    hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:false\n  }).formatToParts(date).forEach(p => { if (p.type !== 'literal') out[p.type] = p.value; });\n  return out;\n}\nfunction todayInTz(){\n  const p = partsInTz(new Date(), TZ);\n  return `${p.year}-${p.month}-${p.day}`;\n}\nfunction validDate(s){\n  if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(s)) return false;\n  const [y,m,d] = s.split('-').map(Number);\n  const x = new Date(Date.UTC(y,m-1,d));\n  return x.getUTCFullYear() === y && x.getUTCMonth() === m-1 && x.getUTCDate() === d;\n}\nfunction addDays(s, n){\n  const [y,m,d] = s.split('-').map(Number);\n  const x = new Date(Date.UTC(y,m-1,d+n));\n  return `${x.getUTCFullYear()}-${String(x.getUTCMonth()+1).padStart(2,'0')}-${String(x.getUTCDate()).padStart(2,'0')}`;\n}\nfunction dayDiff(a,b){\n  const [ay,am,ad]=a.split('-').map(Number), [by,bm,bd]=b.split('-').map(Number);\n  return Math.round((Date.UTC(by,bm-1,bd)-Date.UTC(ay,am-1,ad))/86400000);\n}\nfunction minDate(a,b){ return a <= b ? a : b; }\nfunction maxDate(a,b){ return a >= b ? a : b; }\n\nconst rawDate = clean(q.date);\nconst requestedDateValid = !rawDate || validDate(rawDate);\nconst selected = rawDate && validDate(rawDate) ? rawDate : todayInTz();\n\nconst rawFrom = clean(q.range_from);\nconst rawTo = clean(q.range_to);\nconst rawDays = clean(q.trend_days);\nlet trendDays = Number.parseInt(rawDays || '7', 10);\nif (!Number.isFinite(trendDays) || trendDays < 1 || trendDays > 90) trendDays = 7;\n\nlet rangeMode = 'quick';\nlet rangeStart = addDays(selected, -(trendDays-1));\nlet rangeEnd = selected;\nlet rangeValid = true;\nlet rangeLimited = false;\n\nif (rawFrom || rawTo) {\n  if (validDate(rawFrom) && validDate(rawTo) && rawFrom <= rawTo) {\n    rangeMode = 'custom';\n    rangeStart = rawFrom;\n    rangeEnd = rawTo;\n    const span = dayDiff(rangeStart, rangeEnd) + 1;\n    if (span > 90) {\n      rangeStart = addDays(rangeEnd, -89);\n      rangeLimited = true;\n    }\n  } else {\n    rangeValid = false;\n  }\n}\n\nconst rangeDaysCount = dayDiff(rangeStart, rangeEnd) + 1;\n// Una sola query Directus copre sia il giorno principale sia il range trend.\nconst queryStartDay = minDate(selected, rangeStart);\nconst queryEndDay = maxDate(selected, rangeEnd);\nconst queryFrom = `${queryStartDay}T00:00:00`;\nconst queryTo = `${addDays(queryEndDay, 1)}T00:00:00`;\n\nreturn [{ json: {\n  timezone: TZ,\n  selected_date: selected,\n  requested_date: rawDate || null,\n  requested_date_valid: requestedDateValid,\n  range_mode: rangeMode,\n  range_start: rangeStart,\n  range_end: rangeEnd,\n  range_days_count: rangeDaysCount,\n  requested_range_valid: rangeValid,\n  range_limited: rangeLimited,\n  trend_days_requested: trendDays,\n  query_from: queryFrom,\n  query_to: queryTo\n} }];"
+      },
+      "id": "bc84e857-a51c-4020-86db-44940d38482a",
+      "name": "Prep Range",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1024,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.DIRECTUS_ENDPOINT }}/graphql",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.DIRECTUS_TOKEN }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"query\": \"query DashboardNano { call_log_details( limit: -1 filter: { agent_id: { _eq: \\\"agent_2001ktnse3bre338wc0s7zzg2v6c\\\" } date_created: { _gte: \\\"{{ $('Prep Range').item.json.query_from }}\\\" _lt: \\\"{{ $('Prep Range').item.json.query_to }}\\\" } } ) { conversation_id date_created duration_sec status termination_reason error_code error_reason visited_agents evaluation_logs { criteria_id result result_explanation } } }\"\n}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "a831e688-9eb0-4653-ba53-8db81b115a5a",
+      "name": "Query Call Logs",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -800,
+        0
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const src = $('Query Call Logs').first().json || {};\nconst rows = src?.data?.call_log_details;\nconst ids = Array.isArray(rows)\n  ? [...new Set(rows.map(r => r && r.conversation_id).filter(Boolean).map(String))]\n  : [];\n\nconst filter = ids.length\n  ? `conversation_id: { _in: ${JSON.stringify(ids)} }`\n  : `conversation_id: { _eq: \"__NO_MATCH__\" }`;\n\nconst callsQuery = `query DashboardCalls {\n  calls(filter: { ${filter} }, limit: -1) {\n    id\n    conversation_id\n    date_created\n    handoff_id\n    error\n  }\n}`;\n\nreturn [{ json: {\n  conversation_ids: ids,\n  calls_query: callsQuery,\n  source_call_logs_available: Array.isArray(rows)\n} }];"
+      },
+      "id": "dbb5312a-fc9d-43c5-afa5-dc8c2da08148",
+      "name": "Build Calls Query",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -576,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.DIRECTUS_ENDPOINT }}/graphql",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.DIRECTUS_TOKEN }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { query: $json.calls_query } }}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "2feb24f4-6b79-4804-83e0-d408db68ae8a",
+      "name": "Query Calls",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -352,
+        0
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// v1.6 - DYNAMIC RANGE, TRANSFER EVAL, NO DB CHANGES: data basis = call_log_details.date_created\nconst MARTA_ID = 'agent_2001ktnse3bre338wc0s7zzg2v6c';\nconst VALENTINA_ID = 'agent_3001ktnsfxpffq58bw7sebh47ysz';\nconst MARCO_ID = 'agent_9701kvsv0nhfebhbt2erempjfs8q';\nconst TZ = 'Europe/Rome';\nfunction nodeJson(name){ try { return $(name).first().json || {}; } catch(e) { return {}; } }\nfunction addDays(s, n){\n  const [y,m,d] = String(s).split('-').map(Number);\n  const x = new Date(Date.UTC(y,m-1,d+n));\n  return `${x.getUTCFullYear()}-${String(x.getUTCMonth()+1).padStart(2,'0')}-${String(x.getUTCDate()).padStart(2,'0')}`;\n}\nfunction localDay(value){\n  if (!value) return null;\n  const s = String(value);\n  // date_created e il timestamp certo disponibile oggi in Directus.\n  if (/^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}/.test(s) && !/[zZ]$|[+-]\\d{2}:\\d{2}$/.test(s)) return s.slice(0,10);\n  const d = new Date(value);\n  if (Number.isNaN(d.getTime())) return null;\n  const p = {};\n  new Intl.DateTimeFormat('en-CA', { timeZone:TZ, year:'numeric', month:'2-digit', day:'2-digit' })\n    .formatToParts(d).forEach(x => { if (x.type !== 'literal') p[x.type] = x.value; });\n  return `${p.year}-${p.month}-${p.day}`;\n}\nfunction pct(n,d){ return d > 0 ? +((n/d)*100).toFixed(1) : null; }\nfunction truthyId(v){ return v !== null && v !== undefined && String(v).trim() !== ''; }\nfunction parseMaybeJson(v){\n  if (v === null || v === undefined) return null;\n  if (typeof v === 'object') return v;\n  const s = String(v).trim();\n  if (!s || s === 'null' || s === '{}' || s === '[]') return null;\n  try { return JSON.parse(s); } catch(e) { return s; }\n}\nfunction normalizeVisited(v){\n  const x = parseMaybeJson(v);\n  if (!Array.isArray(x)) return [];\n  return x.map(a => typeof a === 'string' ? a : (a?.agent_id || a?.id || null)).filter(Boolean);\n}\nfunction hasAgent(call,id){ return normalizeVisited(call?.visited_agents).includes(id); }\nfunction evalRow(call,id){\n  const logs = Array.isArray(call?.evaluation_logs) ? call.evaluation_logs : [];\n  return logs.find(x => x && x.criteria_id === id) || null;\n}\nfunction evalResult(call,id){\n  const row = evalRow(call,id);\n  return row ? String(row.result || '').toLowerCase() : null;\n}\nfunction evalExplanation(call,id){\n  const row = evalRow(call,id);\n  return row?.result_explanation == null ? null : String(row.result_explanation);\n}\nfunction evalSuccess(call,id){ return evalResult(call,id) === 'success'; }\nfunction containsOccupati(text){ return /occupat/i.test(String(text || '')); }\nfunction latest(a,b){\n  const ta = Date.parse(a?.date_created || '') || 0;\n  const tb = Date.parse(b?.date_created || '') || 0;\n  return tb >= ta ? b : a;\n}\nfunction errorKey(raw){\n  const e = parseMaybeJson(raw);\n  if (e === null) return null;\n  if (typeof e === 'string') return e.trim() ? 'NON_CLASSIFICATO' : null;\n  if (Array.isArray(e)) return e.length ? 'NON_CLASSIFICATO' : null;\n  if (typeof e === 'object') {\n    const k = e.type || e.code || e.error_type || e.errorCode || e.name;\n    if (k) return String(k);\n    return Object.keys(e).length ? 'NON_CLASSIFICATO' : null;\n  }\n  return 'NON_CLASSIFICATO';\n}\n\nconst meta = nodeJson('Prep Range');\nconst warnings = [];\nif (meta.requested_date && meta.requested_date_valid === false) warnings.push({ code:'INVALID_DATE_FALLBACK', severity:'warning', message:`Parametro date non valido: usato ${meta.selected_date}.` });\nif (meta.requested_range_valid === false) warnings.push({ code:'INVALID_RANGE_FALLBACK', severity:'warning', message:`Range non valido: usato il preset di ${meta.trend_days_requested || 7} giorni.` });\nif (meta.range_limited === true) warnings.push({ code:'RANGE_LIMITED', severity:'warning', message:'Range personalizzato limitato agli ultimi 90 giorni per mantenere la query efficiente.' });\n\n// ---------- CALL LOG DETAILS ----------\nconst logsPayload = nodeJson('Query Call Logs');\nconst rawLogs = logsPayload?.data?.call_log_details;\nconst logsAvailable = Array.isArray(rawLogs);\nif (!logsAvailable) warnings.push({ code:'CALL_LOG_DETAILS_UNAVAILABLE', severity:'error', message:'call_log_details non disponibile: KPI chiamate e funnel non certificabili.' });\n\nconst logMap = new Map();\nlet duplicateLogRows = 0;\nif (logsAvailable) {\n  for (const r of rawLogs) {\n    if (!r?.conversation_id) continue;\n    const id = String(r.conversation_id);\n    if (logMap.has(id)) { duplicateLogRows++; logMap.set(id, latest(logMap.get(id), r)); }\n    else logMap.set(id, r);\n  }\n}\nif (duplicateLogRows) warnings.push({ code:'DUPLICATE_CALL_LOG_DETAILS', severity:'warning', message:`Trovate ${duplicateLogRows} righe duplicate per conversation_id in call_log_details; deduplicate usando la più recente.` });\n\nfunction listDays(start, end){\n  const out=[];\n  for (let d=start; d<=end; d=addDays(d,1)) out.push(d);\n  return out;\n}\nconst rangeDays = listDays(meta.range_start, meta.range_end);\nconst rangeDaySet = new Set(rangeDays);\n// Query Call Logs puo contenere anche giorni intermedi necessari per un range custom disgiunto dal giorno principale.\nconst allCalls = [...logMap.values()];\n\n// ---------- CALLS SNAPSHOT ----------\nconst callsPayload = nodeJson('Query Calls');\nconst rawPracticeRows = callsPayload?.data?.calls;\nconst callsAvailable = Array.isArray(rawPracticeRows);\nif (!callsAvailable) warnings.push({ code:'CALLS_UNAVAILABLE', severity:'error', message:'Collection calls non disponibile: handoff richiesti ed errori stato pratica non certificabili.' });\n\nconst practiceMap = new Map();\nlet duplicatePracticeRows = 0;\nif (callsAvailable) {\n  for (const r of rawPracticeRows) {\n    if (!r?.conversation_id) continue;\n    const id = String(r.conversation_id);\n    if (practiceMap.has(id)) { duplicatePracticeRows++; practiceMap.set(id, latest(practiceMap.get(id), r)); }\n    else practiceMap.set(id, r);\n  }\n}\nif (duplicatePracticeRows) warnings.push({ code:'DUPLICATE_CALLS', severity:'warning', message:`Trovate ${duplicatePracticeRows} righe duplicate per conversation_id in calls; deduplicate usando la più recente.` });\n\n// ---------- PER-CALL STAGES ----------\nfunction classify(c){\n  const id = String(c.conversation_id);\n  const p = practiceMap.get(id);\n  const handoffRequested = callsAvailable ? truthyId(p?.handoff_id) : null;\n\n  const reachedValentinaRaw = hasAgent(c, VALENTINA_ID);\n  const reachedMarcoRaw = hasAgent(c, MARCO_ID);\n  const martaOk = evalSuccess(c, 'marta_raccolta_dati_completata');\n  const podOk = evalSuccess(c, 'valentina_pod_pdr_confermato');\n  const cfOk = evalSuccess(c, 'valentina_codice_fiscale_confermato');\n  const transferEvalResult = evalResult(c, 'marco_trasferimento_umano_eseguito');\n  const transferEvalExplanation = evalExplanation(c, 'marco_trasferimento_umano_eseguito');\n\n  // Backfill monotono consentito dalla sequenza NANO già verificata.\n  const s7 = handoffRequested === true;\n  const s6 = reachedMarcoRaw || s7;\n  const s5 = cfOk || s6;\n  const s4 = podOk || s5;\n  const s3 = reachedValentinaRaw || s4;\n  const s2 = martaOk || s3;\n\n  return {\n    id, call:c, practice:p,\n    day: localDay(c.date_created),\n    duration: Number(c.duration_sec) || 0,\n    stages:[true,s2,s3,s4,s5,s6,s7],\n    reachedValentina: s3,\n    reachedMarco: s6,\n    handoffRequested,\n    transferEvalResult,\n    transferEvalExplanation,\n    transferIsLeadNoOperator: transferEvalResult === 'failure' && containsOccupati(transferEvalExplanation),\n    eval: {\n      marta: evalResult(c,'marta_raccolta_dati_completata'),\n      pod: evalResult(c,'valentina_pod_pdr_confermato'),\n      cf: evalResult(c,'valentina_codice_fiscale_confermato'),\n      transfer: transferEvalResult\n    }\n  };\n}\nconst classified = allCalls.map(classify);\n\nconst funnelDefs = [\n  {key:'calls', label:'Chiamate', source_type:'technical', reliability:'certified'},\n  {key:'marta_complete', label:'Marta · dati iniziali completati', source_type:'conversation_analysis', reliability:'conversation_analysis'},\n  {key:'valentina', label:'Arrivate a Valentina', source_type:'technical', reliability:'certified'},\n  {key:'pod_pdr', label:'POD/PDR confermato', source_type:'conversation_analysis', reliability:'conversation_analysis'},\n  {key:'tax_code', label:'Codice fiscale confermato', source_type:'conversation_analysis', reliability:'conversation_analysis'},\n  {key:'marco', label:'Arrivate a Marco', source_type:'technical', reliability:'certified'},\n  {key:'handoff_request', label:'Richiesta operatore', source_type:'technical', reliability:'certified'}\n];\n\nfunction aggregateDay(day){\n  const rows = classified.filter(x => x.day === day);\n  const total = rows.length;\n  const counts = funnelDefs.map((_,idx) => rows.filter(x => x.stages[idx]).length);\n  const funnel = funnelDefs.map((d,idx) => {\n    const count = counts[idx];\n    const prev = idx === 0 ? total : counts[idx-1];\n    const drop = idx === 0 ? 0 : Math.max(0, prev-count);\n    return {\n      ...d,\n      count,\n      pct_total: pct(count,total),\n      pct_previous: idx === 0 ? (total > 0 ? 100 : null) : pct(count,prev),\n      drop_count: drop,\n      drop_pct: idx === 0 ? 0 : pct(drop,prev)\n    };\n  });\n\n  const durations = rows.map(x=>x.duration).filter(x=>x>0);\n  const callErrors = rows.filter(x => truthyId(x.call?.error_code) || truthyId(x.call?.error_reason));\n  const callErrorGroups = {};\n  for (const x of callErrors) {\n    const k = truthyId(x.call?.error_code) ? String(x.call.error_code) : 'SENZA_CODICE';\n    callErrorGroups[k] = (callErrorGroups[k] || 0) + 1;\n  }\n\n  let practiceCurrentErrors = null;\n  let practiceErrorGroups = null;\n  if (callsAvailable) {\n    practiceErrorGroups = {};\n    practiceCurrentErrors = 0;\n    for (const x of rows) {\n      const k = errorKey(x.practice?.error);\n      if (!k) continue;\n      practiceCurrentErrors++;\n      practiceErrorGroups[k] = (practiceErrorGroups[k] || 0) + 1;\n    }\n  }\n\n  const requestedRows = rows.filter(x => x.handoffRequested === true);\n\n  // Esito handoff dalla Evaluation persistita in Directus.\n  // Regole V1.4:\n  // - trasferito = handoff_id presente + marco_trasferimento_umano_eseguito = success\n  // - lead no operator = handoff_id presente + result = failure + result_explanation contiene /occupat/i\n  // - altro fallimento = handoff_id presente + result = failure ma explanation NON contiene /occupat/i\n  // È una fonte di analisi conversazionale ad alta affidabilità, non un evento tecnico raw.\n  const transferOutcomeStatus = (logsAvailable && callsAvailable) ? 'conversation_analysis' : 'not_certified';\n  const completed = requestedRows.filter(x => x.transferEvalResult === 'success').length;\n  const failureRows = requestedRows.filter(x => x.transferEvalResult === 'failure');\n  const leads = failureRows.filter(x => x.transferIsLeadNoOperator).length;\n  const transferErrors = failureRows.filter(x => !x.transferIsLeadNoOperator).length;\n  const interrupted = requestedRows.filter(x => !['success','failure'].includes(x.transferEvalResult)).length;\n  const classifiedOutcomes = completed + leads + transferErrors;\n\n  return {\n    day,\n    rows,\n    total,\n    avg_duration_sec: durations.length ? Math.round(durations.reduce((a,b)=>a+b,0)/durations.length) : (total === 0 ? 0 : null),\n    counts,\n    funnel,\n    handoff_requested: callsAvailable ? requestedRows.length : null,\n    transfer_outcomes: {\n      status: transferOutcomeStatus,\n      completed,\n      lead_no_operator: leads,\n      other_failures: transferErrors,\n      unclassified: interrupted,\n      classified: classifiedOutcomes,\n      coverage_pct: pct(classifiedOutcomes, requestedRows.length)\n    },\n    call_errors: {\n      count: callErrors.length,\n      pct: pct(callErrors.length,total),\n      by_code: Object.entries(callErrorGroups).sort((a,b)=>b[1]-a[1]).map(([code,count])=>({code,count}))\n    },\n    practice_errors: {\n      count: practiceCurrentErrors,\n      by_code: practiceErrorGroups ? Object.entries(practiceErrorGroups).sort((a,b)=>b[1]-a[1]).map(([code,count])=>({code,count})) : null\n    }\n  };\n}\n\nconst byDay = new Map(rangeDays.map(d => [d, aggregateDay(d)]));\nconst selected = byDay.get(meta.selected_date) || aggregateDay(meta.selected_date);\n\n// ---------- DATA QUALITY FOR EVALUATIONS ----------\nlet missingMartaEval = 0, missingPodEval = 0, missingCfEval = 0;\nfor (const x of selected.rows) {\n  if (!x.stages[2] && x.eval.marta === null) missingMartaEval++; // non arrivata a Valentina e criterio Marta assente\n  if (x.stages[2] && !x.stages[4] && x.eval.pod === null) missingPodEval++; // entrata Valentina, non backfill da CF/Marco\n  if (x.stages[3] && !x.stages[5] && x.eval.cf === null) missingCfEval++;\n}\nif (missingMartaEval) warnings.push({ code:'MARTA_EVAL_MISSING', severity:'warning', message:`${missingMartaEval} chiamate non hanno il criterio marta_raccolta_dati_completata e non sono arrivate a Valentina.` });\nif (missingPodEval) warnings.push({ code:'POD_EVAL_MISSING', severity:'warning', message:`${missingPodEval} chiamate entrate in Valentina non hanno un esito POD/PDR certificabile dalle Evaluation persistite.` });\nif (missingCfEval) warnings.push({ code:'CF_EVAL_MISSING', severity:'warning', message:`${missingCfEval} chiamate nel tratto POD→Marco non hanno un esito CF certificabile dalle Evaluation persistite.` });\n\nif ((selected.transfer_outcomes?.unclassified || 0) > 0) warnings.push({\n  code:'HANDOFF_EVAL_MISSING',\n  severity:'warning',\n  message:`${selected.transfer_outcomes.unclassified} richieste operatore non hanno un esito classificabile da marco_trasferimento_umano_eseguito.`\n});\nconst transferEvalWithoutRequest = selected.rows.filter(x => ['success','failure'].includes(x.transferEvalResult) && x.handoffRequested !== true).length;\nif (transferEvalWithoutRequest > 0) warnings.push({\n  code:'HANDOFF_EVAL_WITHOUT_REQUEST',\n  severity:'warning',\n  message:`${transferEvalWithoutRequest} Evaluation Marco hanno success/failure ma non risultano correlate a calls.handoff_id; escluse dai KPI trasferimento.`\n});\n\n// ---------- DROPS ----------\nconst dropPairs = [\n  [0,1,'Chiamate → dati iniziali Marta'],\n  [1,2,'Marta → Valentina'],\n  [2,3,'Valentina → POD/PDR'],\n  [3,4,'POD/PDR → CF'],\n  [4,5,'CF → Marco'],\n  [5,6,'Marco → richiesta operatore']\n];\nconst selectedNonHandoff = callsAvailable ? Math.max(0, selected.total - selected.counts[6]) : null;\nconst dropoff = dropPairs.map(([a,b,label]) => {\n  const entered = selected.funnel[a].count;\n  const progressed = selected.funnel[b].count;\n  const notProgressed = Math.max(0, entered-progressed);\n  return {\n    key:`${selected.funnel[a].key}_to_${selected.funnel[b].key}`,\n    label,\n    entered,\n    progressed,\n    not_progressed:notProgressed,\n    drop_pct:pct(notProgressed,entered),\n    share_non_handoff: selectedNonHandoff === null ? null : pct(notProgressed, selectedNonHandoff)\n  };\n});\n\n// ---------- DYNAMIC ANALYSIS RANGE ----------\nconst trendData = rangeDays.map(day => {\n  const d = byDay.get(day) || aggregateDay(day);\n  return {\n    date: day,\n    calls: d.total,\n    valentina: d.counts[2],\n    pod_pdr: d.counts[3],\n    tax_code: d.counts[4],\n    marco: d.counts[5],\n    handoff_requested: d.handoff_requested,\n    handoff_requested_pct: d.handoff_requested == null ? null : pct(d.handoff_requested, d.total),\n    transferred: d.transfer_outcomes.status === 'not_certified' ? null : d.transfer_outcomes.completed,\n    transferred_pct_of_requested: d.handoff_requested == null ? null : pct(d.transfer_outcomes.completed, d.handoff_requested),\n    lead_no_operator: d.transfer_outcomes.status === 'not_certified' ? null : d.transfer_outcomes.lead_no_operator,\n    lead_pct_of_requested: d.handoff_requested == null ? null : pct(d.transfer_outcomes.lead_no_operator, d.handoff_requested),\n    handoff_other_failures: d.transfer_outcomes.status === 'not_certified' ? null : d.transfer_outcomes.other_failures,\n    handoff_unclassified: d.transfer_outcomes.status === 'not_certified' ? null : d.transfer_outcomes.unclassified,\n    transfer_outcome_status: d.transfer_outcomes.status\n  };\n});\n\nconst rangeClassified = classified.filter(x => rangeDaySet.has(x.day));\nconst rangeTotal = rangeClassified.length;\nconst rangeCounts = funnelDefs.map((_,idx)=>rangeClassified.filter(x=>x.stages[idx]).length);\nconst rangeHandoff = callsAvailable ? rangeClassified.filter(x=>x.handoffRequested===true).length : null;\nconst rangeNonHandoff = rangeHandoff === null ? null : Math.max(0, rangeTotal - rangeHandoff);\nfunction rangeDrop(a,b,label,key){\n  const count = Math.max(0,rangeCounts[a]-rangeCounts[b]);\n  return {\n    key,\n    label,\n    count,\n    entered: rangeCounts[a],\n    progressed: rangeCounts[b],\n    pct: pct(count,rangeCounts[a]),\n    share_non_handoff: rangeNonHandoff === null ? null : pct(count, rangeNonHandoff)\n  };\n}\nconst rangeDropoff = [\n  rangeDrop(0,1,'Chiamate → dati iniziali Marta','calls_to_marta'),\n  rangeDrop(1,2,'Marta → Valentina','marta_to_valentina'),\n  rangeDrop(2,3,'Valentina → POD/PDR','valentina_to_pod'),\n  rangeDrop(3,4,'POD/PDR → CF','pod_to_cf'),\n  rangeDrop(4,5,'CF → Marco','cf_to_marco'),\n  rangeHandoff===null ? {key:'marco_to_handoff',label:'Marco → richiesta operatore',count:null,entered:rangeCounts[5],progressed:null,pct:null,share_non_handoff:null} : rangeDrop(5,6,'Marco → richiesta operatore','marco_to_handoff')\n];\n\nconst transferRange = rangeDays.reduce((acc,day) => {\n  const t = byDay.get(day)?.transfer_outcomes;\n  if (!t || t.status === 'not_certified') return acc;\n  acc.completed += t.completed || 0;\n  acc.leads += t.lead_no_operator || 0;\n  acc.other_failures += t.other_failures || 0;\n  acc.unclassified += t.unclassified || 0;\n  return acc;\n}, {completed:0, leads:0, other_failures:0, unclassified:0});\nconst transferRangeClassified = transferRange.completed + transferRange.leads + transferRange.other_failures;\n\nconst rangeRecap = {\n  calls: rangeTotal,\n  handoff_requested: rangeHandoff,\n  handoff_requested_pct: rangeHandoff === null ? null : pct(rangeHandoff,rangeTotal),\n  transferred: logsAvailable && callsAvailable ? transferRange.completed : null,\n  transferred_pct_of_requested: rangeHandoff === null ? null : pct(transferRange.completed, rangeHandoff),\n  lead_no_operator: logsAvailable && callsAvailable ? transferRange.leads : null,\n  lead_pct_of_requested: rangeHandoff === null ? null : pct(transferRange.leads, rangeHandoff),\n  handoff_other_failures: logsAvailable && callsAvailable ? transferRange.other_failures : null,\n  handoff_unclassified: logsAvailable && callsAvailable ? transferRange.unclassified : null,\n  handoff_outcome_coverage_pct: rangeHandoff === null ? null : pct(transferRangeClassified, rangeHandoff),\n  transfer_outcome_status: (logsAvailable && callsAvailable) ? 'conversation_analysis' : 'not_certified',\n  non_handoff: rangeNonHandoff,\n  drops: Object.fromEntries(rangeDropoff.map(x => [x.key, {count:x.count,pct:x.pct,share_non_handoff:x.share_non_handoff}]))\n};\n\nlet qualityStatus = 'ok';\nif (!logsAvailable) qualityStatus = 'error';\nelse if (warnings.some(w=>w.severity==='error' || w.severity==='warning')) qualityStatus = 'partial';\n\nconst response = {\n  date: meta.selected_date,\n  timezone: TZ,\n  generated_at: new Date().toISOString(),\n  date_basis: 'call_log_details.date_created',\n  date_basis_label: 'giorno di registrazione in Directus',\n  macro: {\n    calls: logsAvailable ? selected.total : null,\n    avg_duration_sec: logsAvailable ? selected.avg_duration_sec : null,\n    reached_valentina: logsAvailable ? selected.counts[2] : null,\n    reached_valentina_pct: logsAvailable ? pct(selected.counts[2],selected.total) : null,\n    reached_marco: logsAvailable ? selected.counts[5] : null,\n    reached_marco_pct: logsAvailable ? pct(selected.counts[5],selected.total) : null,\n    handoff_requested: (logsAvailable && callsAvailable) ? selected.handoff_requested : null,\n    handoff_requested_pct: (logsAvailable && callsAvailable) ? pct(selected.handoff_requested,selected.total) : null\n  },\n  transfers: {\n    requested: { value: (logsAvailable && callsAvailable) ? selected.handoff_requested : null, status:(logsAvailable && callsAvailable)?'certified':'not_certified' },\n    completed: { value: selected.transfer_outcomes.status==='not_certified' ? null : selected.transfer_outcomes.completed, status:selected.transfer_outcomes.status },\n    lead_no_operator: { value: selected.transfer_outcomes.status==='not_certified' ? null : selected.transfer_outcomes.lead_no_operator, status:selected.transfer_outcomes.status },\n    errors: {\n      value: selected.transfer_outcomes.status==='not_certified' ? null : selected.transfer_outcomes.other_failures,\n      status:selected.transfer_outcomes.status,\n      breakdown: selected.transfer_outcomes.status==='not_certified' ? null : {\n        failure_non_occupati:selected.transfer_outcomes.other_failures,\n        esito_non_disponibile:selected.transfer_outcomes.unclassified\n      }\n    },\n    outcome_coverage: {\n      classified: selected.transfer_outcomes.status==='not_certified' ? null : selected.transfer_outcomes.classified,\n      unclassified: selected.transfer_outcomes.status==='not_certified' ? null : selected.transfer_outcomes.unclassified,\n      coverage_pct: selected.transfer_outcomes.status==='not_certified' ? null : selected.transfer_outcomes.coverage_pct,\n      status:selected.transfer_outcomes.status\n    }\n  },\n  funnel: logsAvailable ? selected.funnel : funnelDefs.map(d=>({...d,count:null,pct_total:null,pct_previous:null,drop_count:null,drop_pct:null})),\n  dropoff: logsAvailable ? dropoff : [],\n  non_handoff: (logsAvailable && callsAvailable) ? { count:selectedNonHandoff, share_basis:'chiamate senza richiesta operatore' } : { count:null, share_basis:'chiamate senza richiesta operatore' },\n  errors: {\n    call_errors: logsAvailable ? selected.call_errors : {count:null,pct:null,by_code:null},\n    practice_current_errors: (logsAvailable && callsAvailable) ? selected.practice_errors : {count:null,by_code:null}\n  },\n  analysis_range: {\n    mode: meta.range_mode,\n    start: meta.range_start,\n    end: meta.range_end,\n    days: meta.range_days_count,\n    max_days: 90\n  },\n  trend_days_data: logsAvailable ? trendData : [],\n  range_recap: logsAvailable ? rangeRecap : null,\n  range_dropoff: logsAvailable ? rangeDropoff : [],\n  data_quality: {\n    status: qualityStatus,\n    date_basis: { field:'call_log_details.date_created', meaning:'giorno di registrazione in Directus', certified:true },\n    sources: {\n      call_log_details: logsAvailable ? 'available' : 'unavailable',\n      calls: callsAvailable ? 'available' : 'unavailable',\n      evaluation_conversation_log: logsAvailable ? 'available_via_relation' : 'unavailable'\n    },\n    warnings\n  }\n};\n\nreturn [{ json: response }];"
+      },
+      "id": "dc2e6479-9065-4650-a985-b1a919e61fce",
+      "name": "Aggregate Dashboard",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        96,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              },
+              {
+                "name": "Cache-Control",
+                "value": "no-store"
+              },
+              {
+                "name": "Content-Type",
+                "value": "application/json; charset=utf-8"
+              }
+            ]
+          }
+        }
+      },
+      "id": "053aed3b-7d24-4110-aced-f24977b76c1c",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        320,
+        0
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Prep Range",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prep Range": {
+      "main": [
+        [
+          {
+            "node": "Query Call Logs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Query Call Logs": {
+      "main": [
+        [
+          {
+            "node": "Build Calls Query",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Calls Query": {
+      "main": [
+        [
+          {
+            "node": "Query Calls",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Query Calls": {
+      "main": [
+        [
+          {
+            "node": "Aggregate Dashboard",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate Dashboard": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false,
+    "timeSavedMode": "fixed",
+    "saveDataSuccessExecution": "none",
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "versionId": "d4df0e3b-8e36-4c6c-8873-287e98c4e3fa",
+  "meta": null,
+  "tags": []
+}

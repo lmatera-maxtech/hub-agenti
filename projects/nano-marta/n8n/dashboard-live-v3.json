@@ -1,0 +1,286 @@
+{
+  "name": "Dashboard Live - Marta Metrics v3",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "dashboard-live-v3",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "37d5c4fe-5c21-4940-a01f-c290e6d42596",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -928,
+        96
+      ],
+      "webhookId": "aa326047-ce49-4602-8b21-f1b2fe646b89"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Confini della giornata su Europe/Rome\nconst now = new Date();\nconst p = Object.fromEntries(new Intl.DateTimeFormat('en-CA', {\n  timeZone: 'Europe/Rome', year:'numeric', month:'2-digit', day:'2-digit',\n  hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:false\n}).formatToParts(now).map(x => [x.type, x.value]));\nconst wallNow = Date.UTC(+p.year, +p.month-1, +p.day, +p.hour, +p.minute, +p.second);\nconst offset  = wallNow - now.getTime();\nconst startMs = Date.UTC(+p.year, +p.month-1, +p.day, 0, 0, 0) - offset;\nreturn [{ json: {\n  giorno:     p.year + '-' + p.month + '-' + p.day,\n  today_unix: Math.floor(startMs/1000),\n  day_start:  new Date(startMs).toISOString(),\n  day_end:    now.toISOString()\n} }];\n"
+      },
+      "id": "8726f84b-057f-4356-84a8-63f6df4c3be6",
+      "name": "Prep giorno",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -768,
+        96
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=https://api.eu.residency.elevenlabs.io/v1/convai/conversations?agent_id=agent_2001ktnse3bre338wc0s7zzg2v6c&page_size=100&call_start_after_unix={{ $('Prep giorno').item.json.today_unix }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "pagination": {
+            "pagination": {
+              "parameters": {
+                "parameters": [
+                  {
+                    "name": "cursor",
+                    "value": "={{ $response.body.next_cursor }}"
+                  }
+                ]
+              },
+              "paginationCompleteWhen": "other",
+              "completeExpression": "={{ !$response.body.has_more }}",
+              "limitPagesFetched": true,
+              "maxRequests": 20
+            }
+          }
+        }
+      },
+      "id": "186852e0-5088-47b2-a3d9-f0f53a13a14b",
+      "name": "ElevenLabs",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -432,
+        96
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "IeYtJrmaQETG8BRn",
+          "name": "ElevenLaps EU - API"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Trasferimenti e lead dall'esito REALE del tool, non da un giudizio dell'LLM.\n// La risposta del flusso \"Richiesta operatore\" e nei tool_results della conversazione.\nconst rip = $('Chiamate di oggi').first().json.riepilogo || {};\nconst sd  = $getWorkflowStaticData('global');\nsd.esiti = sd.esiti || {};\n\nfunction dettagli(){ try { return $('Dettaglio conversazione').all().map(x => x.json); } catch(e){ return []; } }\n\nfunction esitoDi(det){\n  let out = null;\n  for (const t of (det && det.transcript) || []){\n    for (const r of t.tool_results || []){\n      if (r.tool_name !== 'async_transfer_to_human') continue;\n      let v = r.result_value;\n      if (typeof v === 'string' && v.indexOf('Background task completed:') === 0){\n        try { v = JSON.parse(v.replace(/^Background task completed:\\s*/,'')).tool_result.result_value; }\n        catch(e){ continue; }\n      }\n      let p = v;\n      if (typeof p === 'string'){ try { p = JSON.parse(p); } catch(e){ p = { message: String(v) }; } }\n      if (!p || typeof p !== 'object') continue;\n      if (p.status === 'in_progress') continue;                 // solo presa in carico\n      const msg = String(p.message || '');\n      if (/gi[aà] in corso/i.test(msg)) continue;               // richiesta duplicata\n      if (p.result === 'SUCCESS') return 'TRASFERITO';          // se aggiungi result allo schema del tool\n      if (p.result === 'FAIL'){ out = 'LEAD'; continue; }\n      if (/specialista libero|passo subito/i.test(msg)) return 'TRASFERITO';\n      if (/occupati/i.test(msg)) out = 'LEAD';\n    }\n  }\n  return out;\n}\n\n// esiti freschi dai dettagli scaricati in questo giro\nfor (const det of dettagli()){\n  const id = det && det.conversation_id;\n  if (!id) continue;\n  const e = esitoDi(det);\n  const chiusa = det.status !== 'in-progress' && det.status !== 'in_progress';\n  if (chiusa) sd.esiti[id] = e || 'NESSUNO';   // anche NESSUNO, per non riscaricarla ogni 3 minuti\n  det.__esito = e;\n}\nconst freschi = {};\nfor (const det of dettagli()){ if (det && det.conversation_id) freschi[det.conversation_id] = det.__esito; }\n\nconst candidati = Array.isArray(rip.candidati) ? rip.candidati : [];\nlet transfers = 0, leads = 0, richieste = 0;\nconst durTrasf = [], durRich = [];\nfor (const c of candidati){\n  const e = (c.id in freschi) ? freschi[c.id] : (sd.esiti[c.id] === 'NESSUNO' ? null : sd.esiti[c.id]);\n  if (e === 'TRASFERITO'){ transfers++; richieste++; if (c.dur>0){ durTrasf.push(c.dur); durRich.push(c.dur); } }\n  else if (e === 'LEAD'){ leads++; richieste++; if (c.dur>0) durRich.push(c.dur); }\n}\n// senza risposta dalla lista non inventiamo zeri\nconst nd = rip.ha_risposto === false;\nconst media = a => a.length ? a.reduce((s,x)=>s+x,0)/a.length/60 : null;\nconst r1 = v => v==null ? null : Math.round(v*10)/10;\n\nreturn [{ json:{\n  live_calls:              rip.live_calls ?? null,\n  live_durations:          rip.live_durations || [],\n  avg_min_all:             r1(rip.avg_sec_all==null ? null : rip.avg_sec_all/60),\n  avg_min_transferred:     r1(media(durTrasf)),\n  total_calls_today:       rip.total_calls ?? null,\n  short_calls_today:       rip.short_calls ?? null,\n  transfers_today:         nd ? null : transfers,\n  leads_today:             nd ? null : leads,\n  handoff_requested_today: nd ? null : richieste,\n  avg_min_handoff:         r1(media(durRich)),\n  updated_at:              new Date().toISOString()\n} }];\n"
+      },
+      "id": "7b19bd51-b4e2-4904-9bf3-f46056b6f634",
+      "name": "Aggrega",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        96
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              },
+              {
+                "name": "Cache-Control",
+                "value": "no-store"
+              }
+            ]
+          }
+        }
+      },
+      "id": "541dde8d-c107-43d5-a233-e3d0965cbec0",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        464,
+        96
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Perimetro della giornata: la lista ElevenLabs (ancorata all'inizio chiamata)\n// e l'unica fonte. Nessun criterio LLM, nessuna dipendenza da Directus.\nfunction pagine(n){ try { return $(n).all().map(x => x.json); } catch(e){ return []; } }\nconst pg = pagine('ElevenLabs');\nconst grezze = pg.flatMap(p => Array.isArray(p.conversations) ? p.conversations : []);\nconst perId = new Map();\nfor (const c of grezze){ const k = c.conversation_id || c.id; if (k) perId.set(k, c); }\nconst haRisposto = pg.some(p => p && Array.isArray(p.conversations));\nconst conv = haRisposto ? [...perId.values()] : null;\n\nconst nowSec  = Math.floor(Date.now()/1000);\nconst durata  = c => Number(c.call_duration_secs ?? c.duration_secs ?? 0) || 0;\nconst inCorso = c => c.status === 'in-progress' || c.status === 'in_progress';\n\nconst inProg = conv ? conv.filter(inCorso) : [];\nconst chiuse = conv ? conv.filter(c => !inCorso(c) && durata(c) > 0) : [];\n\n// chiamate che hanno invocato il tool di trasferimento: dalla lista, senza scaricare i dettagli\nconst TOOL = 'async_transfer_to_human';\nconst candidati = (conv || [])\n  .filter(c => Array.isArray(c.tool_names) && c.tool_names.indexOf(TOOL) !== -1)\n  .map(c => ({ id: c.conversation_id || c.id, dur: durata(c), aperta: inCorso(c) }));\n\n// cache: l'esito di una chiamata chiusa non cambia piu, quindi il dettaglio si scarica una volta sola\nconst sd = $getWorkflowStaticData('global');\nconst giorno = $('Prep giorno').first().json.giorno;\nif (sd.giorno !== giorno){ sd.giorno = giorno; sd.esiti = {}; }\nsd.esiti = sd.esiti || {};\n\nconst daLeggere = candidati.filter(c => c.aperta || !sd.esiti[c.id]).map(c => c.id);\n\nconst riepilogo = {\n  ha_risposto:    haRisposto,\n  total_calls:    conv ? conv.length : null,\n  short_calls:    conv ? conv.filter(c => !inCorso(c) && durata(c) < 15).length : null,\n  live_calls:     conv ? inProg.length : null,\n  live_durations: inProg.map(function(c){\n    var st = Number(c.start_time_unix_secs);\n    if(!isFinite(st) || st <= 0) return 0;\n    if(st > 1e12) st = Math.floor(st/1000);\n    return Math.max(0, nowSec - st);\n  }),\n  avg_sec_all:    chiuse.length ? chiuse.reduce((s,c)=>s+durata(c),0)/chiuse.length : null,\n  candidati\n};\n\nif (!daLeggere.length) return [{ json: { riepilogo, nulla_da_leggere: true } }];\nreturn daLeggere.map(id => ({ json: { riepilogo, conversation_id: id } }));\n"
+      },
+      "id": "520b4c28-fe05-4128-b1e4-f2b271b16ad8",
+      "name": "Chiamate di oggi",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -576,
+        96
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.conversation_id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "id": "95544fec-58bd-4305-a7d0-c1cda7d81bfc",
+      "name": "Serve il dettaglio?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -224,
+        96
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=https://api.eu.residency.elevenlabs.io/v1/convai/conversations/{{ $json.conversation_id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "id": "ab3ae124-6f92-4d3d-a029-300397c80dce",
+      "name": "Dettaglio conversazione",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -16,
+        0
+      ],
+      "alwaysOutputData": true,
+      "retryOnFail": false,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "IeYtJrmaQETG8BRn",
+          "name": "ElevenLaps EU - API"
+        }
+      },
+      "onError": "continueRegularOutput"
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Prep giorno",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prep giorno": {
+      "main": [
+        [
+          {
+            "node": "ElevenLabs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ElevenLabs": {
+      "main": [
+        [
+          {
+            "node": "Chiamate di oggi",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggrega": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Chiamate di oggi": {
+      "main": [
+        [
+          {
+            "node": "Serve il dettaglio?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Serve il dettaglio?": {
+      "main": [
+        [
+          {
+            "node": "Dettaglio conversazione",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Aggrega",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Dettaglio conversazione": {
+      "main": [
+        [
+          {
+            "node": "Aggrega",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false,
+    "timeSavedMode": "fixed",
+    "saveDataSuccessExecution": "none",
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "pinData": {},
+  "meta": {},
+  "tags": []
+}
