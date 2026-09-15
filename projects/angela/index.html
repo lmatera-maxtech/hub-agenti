@@ -70,13 +70,14 @@
     </section>
 
     <section id="tab-analisi" class="tab-panel" aria-labelledby="Analisi">
-      <div id="analysisLocked" class="lock-panel">
-        <div class="lock-icon">⌁</div><h2>Analisi protetta</h2>
-        <p>La protezione è client-side e serve solo a evitare accessi casuali alla vista analitica. Non sostituisce autenticazione server-side.</p>
-        <form id="unlockForm" class="unlock-form">
-          <label for="analysisPassword">Password</label>
-          <div class="input-row"><input id="analysisPassword" type="password" autocomplete="current-password" required><button type="submit" class="primary-btn">Sblocca</button></div>
-          <div id="unlockError" class="form-error"></div>
+      <div id="analysisLocked" class="lock-panel maxtech-analysis-gate">
+        <div class="maxtech-gate-icon" aria-hidden="true"><svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" viewBox="0 0 24 24"><rect height="10" rx="2" width="16" x="4" y="10"></rect><path d="M8 10V7a4 4 0 0 1 8 0v3"></path></svg></div>
+        <div class="maxtech-gate-kicker">Accesso riservato</div>
+        <h2 class="maxtech-gate-title">Analisi protetta</h2>
+        <p class="maxtech-gate-sub">Inserisci la password per accedere alla vista Analisi del progetto.</p>
+        <form id="unlockForm" class="unlock-form maxtech-gate-form">
+          <div class="maxtech-gate-fields"><input id="analysisPassword" class="maxtech-gate-input" type="password" autocomplete="current-password" placeholder="Password" aria-label="Password" required><button type="submit" class="primary-btn maxtech-gate-button">Sblocca</button></div>
+          <div id="unlockError" class="form-error maxtech-gate-error"></div>
         </form>
       </div>
 

@@ -86,15 +86,18 @@
 </div>
 <!-- ============ TAB 2 · Analisi NANO ============ -->
 <div aria-labelledby="tabBtnDettaglio" class="panel" hidden="" id="panelDettaglio" role="tabpanel">
-<section class="gate" hidden="" id="gate">
-<svg class="gate-lock" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.6" viewBox="0 0 24 24"><rect height="10" rx="2" width="16" x="4" y="10"></rect><path d="M8 10V7a4 4 0 0 1 8 0v3"></path></svg>
-<h2 class="gate-title">Sezione riservata</h2>
-<p class="gate-sub">Inserisci la password per accedere all'analisi NANO di chiamate, funnel e trasferimenti.</p>
-<div class="gate-form">
-<input aria-label="Password" autocomplete="current-password" class="gate-input" id="gatePwd" placeholder="Password" type="password"/>
-<button class="gate-btn" id="gateBtn">Entra</button>
+<section class="gate maxtech-analysis-gate" hidden="" id="gate">
+<div class="maxtech-gate-icon" aria-hidden="true"><svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" viewBox="0 0 24 24"><rect height="10" rx="2" width="16" x="4" y="10"></rect><path d="M8 10V7a4 4 0 0 1 8 0v3"></path></svg></div>
+<div class="maxtech-gate-kicker">Accesso riservato</div>
+<h2 class="gate-title maxtech-gate-title">Analisi protetta</h2>
+<p class="gate-sub maxtech-gate-sub">Inserisci la password per accedere alla vista Analisi del progetto.</p>
+<div class="gate-form maxtech-gate-form">
+<div class="maxtech-gate-fields">
+<input aria-label="Password" autocomplete="current-password" class="gate-input maxtech-gate-input" id="gatePwd" placeholder="Password" type="password"/>
+<button class="gate-btn maxtech-gate-button" id="gateBtn">Sblocca</button>
 </div>
-<p class="gate-err" hidden="" id="gateErr">Password errata.</p>
+</div>
+<p class="gate-err maxtech-gate-error" hidden="" id="gateErr">Password non corretta.</p>
 </section>
 <div class="gate-content analysis-shell" hidden="" id="dettaglioContent">
 <div class="analysis-toolbar">

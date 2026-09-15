@@ -20,7 +20,7 @@ Solo `mt_call_attempts.test_mode=false`. Test e record senza ambiente certificab
 
 Endpoint: `/webhook/dashboard-angela-monitoraggio` e `/webhook/dashboard-angela-analisi?from=YYYY-MM-DD&to=YYYY-MM-DD`.
 
-La password Analisi resta client-side (`maxtech-angela`) e non è sicurezza server-side.
+La password Analisi resta client-side (`maxtech`) e non è sicurezza server-side.
 
 ## Integrità dataset
 Gli endpoint confrontano il numero di righe ricevute con un count Directus sullo stesso range. Se non coincide, rispondono errore 503 e non restituiscono KPI.

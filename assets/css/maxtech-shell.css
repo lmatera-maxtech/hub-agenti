@@ -3,7 +3,7 @@
 /* Shared MaxTech shell. It only styles frontend chrome; project data logic stays untouched. */
 :root{--hub-bg:#1E1127;--hub-deep:#100617;--hub-panel:#281832;--hub-text:#F3EDF4;--hub-muted:#C7ABC1;--hub-faint:#8B6D85;--hub-line:rgba(199,171,193,.15);--hub-brand:#E606E1;--hub-brand2:#BA33C8;--project-accent:#E606E1}
 body.project-nano-marta,body.project-angela{display:block!important;}
-body{background:radial-gradient(1100px 620px at 50% -12%,rgba(186,51,200,.17),transparent 62%),linear-gradient(180deg,#1d1026 0%,#150a1d 70%,#100617 100%)!important;color:var(--hub-text);font-family:'Inter',system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif!important}
+html{background:#13091a!important}body{min-height:100svh;background:#13091a!important;background-image:radial-gradient(1200px 700px at 50% -14%,rgba(186,51,200,.16),transparent 64%)!important;background-attachment:fixed!important;color:var(--hub-text);font-family:'Inter',system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif!important}
 .maxtech-globalbar{width:min(1320px,calc(100% - 28px));margin:max(10px,env(safe-area-inset-top)) auto 12px;min-height:56px;padding:8px 12px;display:flex;align-items:center;justify-content:space-between;gap:16px;border:1px solid rgba(255,255,255,.075);border-radius:15px;background:rgba(24,11,32,.72);backdrop-filter:blur(16px);box-shadow:0 16px 44px rgba(5,2,8,.16);position:sticky;top:max(8px,env(safe-area-inset-top));z-index:110}
 .maxtech-home{display:flex;align-items:center;gap:12px;min-width:0;color:var(--hub-text);text-decoration:none}.maxtech-wordmark{font-family:'Sora',sans-serif;font-size:17px;font-weight:800;letter-spacing:-.035em;white-space:nowrap}.maxtech-wordmark .max{color:transparent;-webkit-text-stroke:1.15px var(--hub-brand)}.maxtech-wordmark .tech{color:var(--hub-text)}.maxtech-hubname{font-size:9px;letter-spacing:.17em;text-transform:uppercase;color:var(--hub-faint);padding-left:11px;border-left:1px solid var(--hub-line);white-space:nowrap}
 .maxtech-crumb{display:flex;align-items:center;gap:8px;min-width:0;font-size:11px;color:var(--hub-faint)}.maxtech-crumb b{color:var(--hub-text);font-family:'Sora',sans-serif;font-size:11px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.maxtech-crumb i{font-style:normal;color:rgba(255,255,255,.22)}
@@ -11,7 +11,7 @@ body{background:radial-gradient(1100px 620px at 50% -12%,rgba(186,51,200,.17),tr
 
 /* project containers */
 body.project-nano-marta{--project-accent:#A95CFF}body.project-angela{--project-accent:#FF5EA8}
-body.project-nano-marta .app,body.project-angela .app-shell{width:min(1280px,calc(100% - 28px));max-width:1280px!important;margin:0 auto!important;padding:0 0 max(26px,env(safe-area-inset-bottom))!important}
+body.project-nano-marta .app,body.project-angela .app-shell{width:min(1280px,calc(100% - 28px));max-width:1280px!important;margin:0 auto!important;padding:0 0 max(46px,calc(env(safe-area-inset-bottom) + 30px))!important}body.project-nano-marta .app{min-height:0!important}
 .project-head{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:18px 20px;border:1px solid rgba(255,255,255,.075);border-radius:18px;background:linear-gradient(180deg,rgba(255,255,255,.045),rgba(255,255,255,.018));box-shadow:0 18px 48px rgba(6,2,9,.12);margin-bottom:12px}.project-identity{min-width:0}.project-kicker{font-size:9.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--project-accent);font-weight:700;margin-bottom:4px}.project-head h1{font-family:'Sora',sans-serif!important;font-size:clamp(22px,3vw,29px)!important;letter-spacing:-.04em!important;line-height:1.08!important;margin:0!important;color:#fff}.project-head p{font-size:11.5px;color:var(--hub-faint);margin:6px 0 0;line-height:1.45}
 .project-head .meta,.project-head .top-actions{margin-left:auto;justify-content:flex-end}
 
@@ -29,7 +29,63 @@ body.project-angela .trust-chip,body.project-angela .badge.eval{border-color:rgb
 
 /* typography consistency */
 body.project-nano-marta h2,body.project-nano-marta h3,body.project-angela h2,body.project-angela h3{font-family:'Sora',sans-serif;letter-spacing:-.025em}
-body.project-nano-marta footer,body.project-angela footer{border-top:1px solid rgba(255,255,255,.06);padding-top:14px!important;margin-top:8px;color:var(--hub-faint)!important}
+body.project-nano-marta footer,body.project-angela footer{border-top:1px solid rgba(255,255,255,.06);padding:18px 2px 6px!important;margin-top:22px!important;color:var(--hub-faint)!important;background:transparent!important}body.project-nano-marta #panelLive{padding-bottom:4px}
+
+
+/* Shared analysis access gate: identical UX for every MaxTech project. */
+body.project-nano-marta #panelDettaglio .maxtech-analysis-gate,
+body.project-angela .maxtech-analysis-gate{
+  width:min(560px,100%)!important;
+  min-height:0!important;
+  margin:52px auto 28px!important;
+  padding:34px 34px 30px!important;
+  display:flex!important;
+  flex-direction:column!important;
+  align-items:center!important;
+  justify-content:center!important;
+  gap:0!important;
+  text-align:center!important;
+  border:1px solid rgba(199,171,193,.14)!important;
+  border-radius:20px!important;
+  background:linear-gradient(180deg,rgba(255,255,255,.050),rgba(255,255,255,.022))!important;
+  box-shadow:0 24px 70px rgba(4,2,7,.20)!important;
+}
+body.project-nano-marta #panelDettaglio .maxtech-analysis-gate[hidden]{display:none!important}
+.maxtech-gate-icon{
+  width:52px;height:52px;display:grid;place-items:center;margin-bottom:15px;
+  border-radius:15px;border:1px solid color-mix(in srgb,var(--project-accent) 32%,transparent);
+  background:color-mix(in srgb,var(--project-accent) 9%,transparent);
+  color:var(--project-accent);box-shadow:0 16px 38px color-mix(in srgb,var(--project-accent) 10%,transparent)
+}
+.maxtech-gate-icon svg{width:24px;height:24px}
+.maxtech-gate-kicker{font-size:9px;line-height:1;letter-spacing:.18em;text-transform:uppercase;font-weight:800;color:var(--project-accent);margin-bottom:9px}
+body.project-nano-marta #panelDettaglio .maxtech-gate-title,
+body.project-angela .maxtech-gate-title{margin:0!important;font-family:'Sora',sans-serif!important;font-size:21px!important;line-height:1.15!important;font-weight:700!important;letter-spacing:-.025em!important;color:#fff!important}
+body.project-nano-marta #panelDettaglio .maxtech-gate-sub,
+body.project-angela .maxtech-gate-sub{max-width:390px!important;margin:9px auto 0!important;font-size:12px!important;line-height:1.55!important;color:var(--hub-faint)!important}
+body.project-nano-marta #panelDettaglio .maxtech-gate-form,
+body.project-angela .maxtech-gate-form{width:min(390px,100%)!important;margin:22px auto 0!important;text-align:left!important;display:block!important}
+.maxtech-gate-fields{display:grid!important;grid-template-columns:minmax(0,1fr) auto!important;gap:8px!important;align-items:stretch!important;width:100%!important}
+body.project-nano-marta #panelDettaglio .maxtech-gate-input,
+body.project-angela .maxtech-gate-input{width:100%!important;min-width:0!important;min-height:44px!important;margin:0!important;padding:10px 12px!important;border:1px solid rgba(199,171,193,.16)!important;border-radius:10px!important;background:#160b1f!important;color:var(--hub-text)!important;font:500 13px 'Inter',sans-serif!important;box-shadow:none!important}
+body.project-nano-marta #panelDettaglio .maxtech-gate-input:focus,
+body.project-angela .maxtech-gate-input:focus{outline:none!important;border-color:color-mix(in srgb,var(--project-accent) 60%,transparent)!important;box-shadow:0 0 0 3px color-mix(in srgb,var(--project-accent) 14%,transparent)!important}
+body.project-nano-marta #panelDettaglio .maxtech-gate-button,
+body.project-angela .maxtech-gate-button{min-width:100px!important;min-height:44px!important;margin:0!important;padding:0 16px!important;border:1px solid transparent!important;border-radius:10px!important;background:linear-gradient(135deg,color-mix(in srgb,var(--project-accent) 72%,#7d35b6),var(--project-accent))!important;color:#fff!important;font:800 12px 'Inter',sans-serif!important;cursor:pointer!important;box-shadow:0 9px 24px color-mix(in srgb,var(--project-accent) 15%,transparent)!important}
+body.project-nano-marta #panelDettaglio .maxtech-gate-button:hover,
+body.project-angela .maxtech-gate-button:hover{filter:brightness(1.08)}
+body.project-nano-marta #panelDettaglio .maxtech-gate-error,
+body.project-angela .maxtech-gate-error{width:100%!important;min-height:18px!important;margin:8px 0 0!important;text-align:left!important;font-size:10.5px!important;line-height:1.4!important;color:#ffadad!important}
+body.project-nano-marta #panelDettaglio .maxtech-gate-error[hidden]{visibility:hidden!important;display:block!important}
+
+@media(max-width:600px){
+  body.project-nano-marta #panelDettaglio .maxtech-analysis-gate,
+  body.project-angela .maxtech-analysis-gate{margin:28px auto 20px!important;padding:28px 18px 24px!important;border-radius:17px!important}
+  .maxtech-gate-icon{width:48px;height:48px;border-radius:14px;margin-bottom:13px}
+  .maxtech-gate-fields{grid-template-columns:1fr!important}
+  body.project-nano-marta #panelDettaglio .maxtech-gate-button,
+  body.project-angela .maxtech-gate-button{width:100%!important}
+}
 
 @media(max-width:720px){.maxtech-globalbar{width:min(100% - 20px,1320px);min-height:52px;padding:7px 9px;top:max(6px,env(safe-area-inset-top))}.maxtech-hubname{display:none}.maxtech-crumb span,.maxtech-crumb i{display:none}.maxtech-back span{display:none}.maxtech-back{width:44px;min-height:44px;padding:0;justify-content:center}.project-head{padding:14px 14px;align-items:flex-start;flex-direction:column}.project-head .meta,.project-head .top-actions{margin-left:0;width:100%;justify-content:flex-start;flex-wrap:wrap}.project-head p{max-width:92%}body.project-nano-marta .tabs,body.project-angela .tabs{top:69px!important;overflow-x:auto;scrollbar-width:none}.tabs::-webkit-scrollbar{display:none}}
 @media(prefers-reduced-motion:reduce){.maxtech-globalbar,*{scroll-behavior:auto!important}}

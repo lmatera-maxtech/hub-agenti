@@ -14,7 +14,7 @@ window.TabDettaglio = (function(){
   const state = { mode:'connecting', lastUpdate:null };
   const rangeState = { mode:'quick', days:7, from:null, to:null };
   const AUTH = C.auth || { attiva:false };
-  const CHIAVE_SESSIONE = 'marta.analisi.sbloccata';
+  const CHIAVE_SESSIONE = 'marta.analisi.sbloccata.v2';
 
   let pollTimer = null;
   let active = false;

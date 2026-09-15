@@ -21,12 +21,12 @@ window.CONFIG = {
 
     /* Accesso alla tab Analisi.
        Qui NON c'e' la password ma la sua impronta SHA-256.
-       Password attuale invariata rispetto alla versione in produzione.
+       Password condivisa MaxTech: maxtech.
        Per cambiarla: U.sha256('nuova-password') nella console e sostituire hash.
        Nota: resta una barriera client-side; per protezione reale usare Cloudflare Access. */
     auth: {
       attiva: true,
-      hash:   "5336ed18a973644d3eca9d8d417626402655437913f64f5c94af6031ae0502f2"
+      hash:   "148ef539efb18d235784f35a6b2e46466d2bd0168b8bcb1a4c54f2c351bdc7f5"
     }
   }
 

@@ -37,4 +37,17 @@ Pubblicare la root del repository. Il progetto non richiede build: e' HTML/CSS/J
 
 ## Sicurezza
 
-Il file `.env` presente nel pacchetto sorgente NON viene incluso nel repository. Conservare secret e token fuori da GitHub. Le password frontend delle sezioni Analisi restano quelle gia configurate nei rispettivi progetti e non rappresentano autenticazione server-side.
+Il file `.env` presente nel pacchetto sorgente NON viene incluso nel repository. Conservare secret e token fuori da GitHub. Le sezioni Analisi usano la password frontend comune `maxtech`; il gate resta client-side e non rappresenta autenticazione server-side.
+
+
+## Accesso Analisi
+
+Le tab **Analisi** di NANO Marta e Angela utilizzano la stessa password UX client-side: `maxtech`.
+La protezione resta un gate frontend e non sostituisce autenticazione server-side.
+
+## UI consistency v1.1
+
+- Gate password identico tra i due progetti (struttura, copy, campi, CTA, error state e mobile).
+- Footer NANO Marta alleggerito e separato dai KPI con maggiore spazio verticale.
+- Background progetto reso continuo per eliminare stacchi/bande visive vicino al fondo pagina.
+- Workflow n8n lasciati invariati rispetto ai progetti live sorgente.
