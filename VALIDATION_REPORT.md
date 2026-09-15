@@ -46,3 +46,10 @@ Ogni hash coincide con il corrispondente workflow nello ZIP sorgente dell'utente
 Repository statico, nessuna build richiesta. Pubblicare come root la cartella `maxtech-ai-operations-hub`.
 
 La password `maxtech` e un gate UX client-side, non autenticazione server-side.
+
+## Correzione v1.2 — gate Analisi Angela
+- PASS — il gate Angela viene nascosto realmente dopo password corretta anche con la shared MaxTech shell caricata dopo `base.css`.
+- PASS — aggiunta regola CSS specifica `.maxtech-analysis-gate.hidden/[hidden]` per evitare override di `display:flex!important`.
+- PASS — unlock Angela imposta anche l'attributo HTML `hidden`, oltre alla classe `.hidden`, per robustezza.
+- PASS — contenuto Analisi viene mostrato solo dopo sblocco; il gate non resta sopra ai KPI.
+- PASS — nessun workflow n8n modificato.

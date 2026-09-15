@@ -51,6 +51,9 @@ body.project-angela .maxtech-analysis-gate{
   box-shadow:0 24px 70px rgba(4,2,7,.20)!important;
 }
 body.project-nano-marta #panelDettaglio .maxtech-analysis-gate[hidden]{display:none!important}
+body.project-nano-marta #panelDettaglio .maxtech-analysis-gate.hidden,
+body.project-angela .maxtech-analysis-gate.hidden,
+body.project-angela .maxtech-analysis-gate[hidden]{display:none!important}
 .maxtech-gate-icon{
   width:52px;height:52px;display:grid;place-items:center;margin-bottom:15px;
   border-radius:15px;border:1px solid color-mix(in srgb,var(--project-accent) 32%,transparent);

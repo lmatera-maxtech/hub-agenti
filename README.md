@@ -51,3 +51,6 @@ La protezione resta un gate frontend e non sostituisce autenticazione server-sid
 - Footer NANO Marta alleggerito e separato dai KPI con maggiore spazio verticale.
 - Background progetto reso continuo per eliminare stacchi/bande visive vicino al fondo pagina.
 - Workflow n8n lasciati invariati rispetto ai progetti live sorgente.
+
+## Patch v1.2 — Analisi Angela
+Corretto il gate password della tab Analisi di Angela: dopo lo sblocco il pannello password viene ora rimosso correttamente e resta visibile solo il contenuto Analisi. Nessun workflow n8n o calcolo dati è stato modificato.
