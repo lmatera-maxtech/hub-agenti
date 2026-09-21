@@ -66,7 +66,12 @@ assets/css/tag-pie.css
 assets/js/tag-pie.js      →  MaxTechTagPie.render(elemento, data.tags)
 ```
 
-Entrambi i workflow n8n di Analisi sono stati estesi con la stessa catena di 5 nodi (`Tag Lista ElevenLabs`, `Tag Prepara`, `Tag Serve Dettaglio?`, `Tag Dettaglio Conversazione`, `Tag Aggrega`), che aggiunge alla risposta solo la chiave `tags`:
+Entrambi i workflow n8n di Analisi sono stati estesi con la stessa catena di 7 nodi, che aggiunge alla risposta solo la chiave `tags`:
+
+```text
+Tag Catalogo Candidati → Tag Catalogo Aggiornare? → [Tag Catalogo ElevenLabs] → Tag Catalogo Mappa
+  → Tag Finestra → Tag Lista ElevenLabs → Tag Aggrega
+```
 
 ```json
 { "tags": { "available": true, "items": [{"tag":"...","count":12}],
@@ -76,14 +81,40 @@ Entrambi i workflow n8n di Analisi sono stati estesi con la stessa catena di 5 n
 
 È l'unico punto in cui le dashboard leggono fuori da Directus. Serve la credenziale n8n **httpHeaderAuth `ElevenLaps EU - API`** su entrambi i workflow.
 
-### Da verificare al primo import
+### Costo e cache
 
-ElevenLabs non espone i tag sempre nello stesso campo. I nodi cercano qualsiasi chiave `tags`/`labels`/`conversation_tags` nella risposta, prima sulla lista conversazioni e — solo se la lista non ne porta nessuno e le conversazioni nel range sono meno di 120 — sul dettaglio della singola conversazione. Dopo il primo run controllare nella risposta del webhook:
+Il blocco tag è in coda al workflow: i KPI Directus sono già calcolati quando parte, e se ElevenLabs è lento o non risponde il resto della risposta non cambia.
+
+Due cache in `$getWorkflowStaticData('global')` tengono basso il costo per refresh:
+
+| | Cache fredda | A regime |
+|---|---|---|
+| Catalogo tag | fino a 4 richieste (path da scoprire) | **0** — cache 6h, path memorizzato |
+| Lista conversazioni | tutto il range | **1 pagina** — solo ieri e oggi |
+
+Un giorno chiuso non cambia più: i suoi conteggi restano in cache e non viene mai riletto. Oggi e ieri sono sempre riletti, così i tag applicati a posteriori entrano comunque. Risultato: un range di 30 giorni costa quanto uno di 7.
+
+La static data si persiste solo nelle **esecuzioni di produzione** (webhook): lanciando il workflow a mano dall'editor la cache non viene salvata e ogni run sembra freddo.
+
+### Limite di lettura
+
+`Tag Lista ElevenLabs` si ferma a 15 pagine (~1500 conversazioni). Se il range richiede più di così a cache fredda, la risposta è `tags.available=false` con `incomplete:true` invece di percentuali calcolate su dati parziali: meglio nessun grafico che un grafico sbagliato. Ranges molto ampi diventano disponibili man mano che l'uso quotidiano riempie la cache giorno per giorno.
+
+### Come vengono risolti i nomi dei tag
+
+La lista conversazioni ElevenLabs espone **`tag_ids`**, non i nomi. La catena quindi:
+
+1. `Tag Catalogo Candidati` + `Tag Catalogo ElevenLabs` + `Tag Catalogo Mappa` leggono il catalogo dei tag e costruiscono la mappa `tag_id → nome`. Il path del catalogo non è identico su tutte le versioni API, quindi vengono provati più endpoint in parallelo (`/v1/convai/conversations/tags`, `/v1/convai/tags`, `/v1/convai/conversation-tags`, `/v1/convai/workspace/tags`): i 404 sono attesi, vince il primo che risponde. Quando sai qual è quello giusto, lascia solo quello nel nodo `Tag Catalogo Candidati`.
+2. `Tag Prepara` raccoglie per ogni conversazione sia eventuali nomi (`tags`, `labels`) sia gli id (`tag_ids`).
+3. `Tag Aggrega` risolve gli id con il catalogo. Un id non presente in catalogo resta visibile come `id:tag_01ab…`, così la distribuzione si vede comunque.
+
+Diagnostica utile nella risposta del webhook:
 
 ```text
-tags.diag.campi_tag        → il campo effettivamente trovato (es. ["tags"])
-tags.diag.chiavi_lista     → le chiavi che la lista ElevenLabs restituisce
-tags.diag.chiavi_dettaglio → le chiavi del dettaglio conversazione
+tags.diag.campi_tag_id     → campo id trovato, es. ["tag_ids"]
+tags.diag.catalogo         → endpoint che ha risposto e numero di voci lette
+tags.diag.id_non_risolti   → id presenti sulle conversazioni ma non nel catalogo
+tags.diag.chiavi_lista     → chiavi restituite dalla lista conversazioni
 ```
 
-Se `campi_tag` è vuoto ma `chiavi_lista`/`chiavi_dettaglio` mostrano un campo con altro nome, basta aggiungerlo alla regex `CHIAVI_TAG` nei nodi `Tag Prepara` e `Tag Aggrega`.
+Se `tags.diag.catalogo.voci_catalogo` è 0, nessuno dei candidati è quello giusto: aggiungi il path corretto in `Tag Catalogo Candidati` e i nomi compaiono senza altre modifiche.

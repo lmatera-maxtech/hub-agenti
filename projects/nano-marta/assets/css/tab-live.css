@@ -89,3 +89,8 @@
   .totval{ font-size:20px; }
   .totsub{ font-size:9px; }
 }
+
+/* ---------- riga lead per motivo ---------- */
+.leadrow{ display:flex; flex-direction:column; gap:10px; }
+.leadrow-head{ display:flex; align-items:baseline; justify-content:space-between; gap:10px; font-family:'Montserrat',sans-serif; font-size:9px; font-weight:600; text-transform:uppercase; letter-spacing:.1em; color:var(--faint); }
+.leadrow-tot{ font-family:'Manrope',sans-serif; font-size:13px; font-weight:700; letter-spacing:0; text-transform:none; color:var(--accent); font-variant-numeric:tabular-nums; }

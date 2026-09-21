@@ -144,13 +144,119 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
       "position": [
-        1420,
+        1820,
         0
       ]
     },
     {
       "parameters": {
-        "url": "=https://api.eu.residency.elevenlabs.io/v1/convai/conversations?agent_id=agent_2001ktnse3bre338wc0s7zzg2v6c&page_size=100&call_start_after_unix={{ Math.floor(DateTime.fromISO($('Prep Range').first().json.range_start + 'T00:00:00', { zone: 'Europe/Rome' }).toSeconds()) }}",
+        "jsCode": "/* ============================================================\n   TAG - passo 0: serve rileggere il catalogo?\n   Il catalogo tag_id -> nome cambia raramente: viene tenuto nella\n   static data del workflow per 6 ore. Se e' fresco questo nodo dice\n   \"non aggiornare\" e la chiamata HTTP non parte affatto.\n   Alla prima volta prova piu' path (i 404 sono attesi); appena uno\n   risponde il path viene memorizzato e dalle volte successive si\n   interroga solo quello.\n   NB: la static data si persiste solo nelle esecuzioni di produzione\n   (webhook), non nei test manuali dall'editor.\n   ============================================================ */\nconst TTL_MS = 6 * 60 * 60 * 1000;\nconst BASE = 'https://api.eu.residency.elevenlabs.io';\nconst CANDIDATI = [\n  '/v1/convai/conversations/tags',\n  '/v1/convai/tags',\n  '/v1/convai/conversation-tags',\n  '/v1/convai/workspace/tags'\n];\n\nconst sd = $getWorkflowStaticData('global');\nconst cat = sd.tagCatalogo = sd.tagCatalogo || {};\n\nconst fresco = cat.mappa\n  && cat.aggiornato\n  && (Date.now() - cat.aggiornato) < TTL_MS;\n\nif (fresco) return [{ json: { aggiorna: false, da_cache: true } }];\n\nconst paths = cat.path ? [cat.path] : CANDIDATI;\nreturn paths.map(p => ({ json: { aggiorna: true, url: BASE + p, path: p } }));\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        320,
+        0
+      ],
+      "id": "fa17e06a-1636-4538-868a-8649bd849878",
+      "name": "Tag Catalogo Candidati"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "cat-aggiorna",
+              "leftValue": "={{ $json.aggiorna }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        520,
+        0
+      ],
+      "id": "56ec521e-466c-4bd6-8676-c1a8d6b0ec81",
+      "name": "Tag Catalogo Aggiornare?"
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.url }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          },
+          "timeout": 8000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        720,
+        -140
+      ],
+      "id": "fc9ba8ba-3faf-4b8d-a4f1-fa5b2cb2b141",
+      "name": "Tag Catalogo ElevenLabs",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "IeYtJrmaQETG8BRn",
+          "name": "ElevenLaps EU - API"
+        }
+      },
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput",
+      "notes": "Parte solo se il catalogo in cache e' scaduto (6h). Alla prima volta prova piu' path: i 404 sono attesi, il path vincente viene memorizzato."
+    },
+    {
+      "parameters": {
+        "jsCode": "/* ============================================================\n   TAG - passo 0b: mappa tag_id -> nome.\n   Riceve o le risposte HTTP (ramo \"da aggiornare\") o niente\n   (ramo \"cache fresca\"). In entrambi i casi emette UN solo item,\n   cosi' la lista conversazioni a valle viene chiamata una volta.\n   ============================================================ */\nconst ID_KEYS   = ['tag_id', 'id', 'uuid', 'key'];\nconst NOME_KEYS = ['name', 'tag_name', 'label', 'title', 'value', 'display_name'];\n\nconst sd = $getWorkflowStaticData('global');\nconst cat = sd.tagCatalogo = sd.tagCatalogo || {};\n\nfunction risposte(){ try { return $('Tag Catalogo ElevenLabs').all().map(x => x.json); } catch(e){ return []; } }\nfunction candidati(){ try { return $('Tag Catalogo Candidati').all().map(x => x.json); } catch(e){ return []; } }\n\nconst mappa = {};\nlet voci = 0, vincente = null;\n\nfunction raccogli(obj, prof){\n  prof = prof || 0;\n  if (!obj || typeof obj !== 'object' || prof > 4) return;\n  if (Array.isArray(obj)){ for (const x of obj) raccogli(x, prof + 1); return; }\n  const idKey = ID_KEYS.find(k => typeof obj[k] === 'string' && obj[k].trim());\n  const nomeKey = NOME_KEYS.find(k => typeof obj[k] === 'string' && obj[k].trim());\n  if (idKey && nomeKey){\n    const id = String(obj[idKey]).trim();\n    if (!mappa[id]){ mappa[id] = String(obj[nomeKey]).trim(); voci++; }\n    return;\n  }\n  for (const k of Object.keys(obj)){\n    if (obj[k] && typeof obj[k] === 'object') raccogli(obj[k], prof + 1);\n  }\n}\n\nconst resp = risposte();\nconst cand = candidati();\nresp.forEach((r, i) => {\n  if (!r || typeof r !== 'object') return;\n  const prima = voci;\n  raccogli(r, 0);\n  if (voci > prima && !vincente) vincente = cand[i]?.path || null;\n});\n\nlet fonte;\nif (voci > 0){\n  cat.mappa = mappa;\n  cat.path = vincente || cat.path || null;\n  cat.aggiornato = Date.now();\n  fonte = 'api';\n} else if (cat.mappa){\n  fonte = 'cache';\n} else {\n  fonte = 'nessuna';\n}\n\nconst finale = voci > 0 ? mappa : (cat.mappa || {});\n\nreturn [{ json: {\n  catalogo: finale,\n  diag_catalogo: {\n    fonte,\n    path: cat.path || null,\n    voci: Object.keys(finale).length,\n    richieste_fatte: resp.length,\n    aggiornato: cat.aggiornato ? new Date(cat.aggiornato).toISOString() : null\n  }\n} }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        940,
+        0
+      ],
+      "id": "1f989718-1e61-4d8a-8b1d-3ed3e4a2d551",
+      "name": "Tag Catalogo Mappa"
+    },
+    {
+      "parameters": {
+        "jsCode": "/* ============================================================\n   TAG - passo 1: quali giorni vanno letti davvero da ElevenLabs.\n   Unico blocco della tab Analisi che NON legge da Directus.\n   Il perimetro e' il RANGE di analisi, non il singolo giorno.\n   ============================================================ */\nconst meta = $('Prep Range').first().json;\nconst DA = meta.range_start;  // YYYY-MM-DD\nconst A  = meta.range_end;\n\nconst TZ = 'Europe/Rome';\n// Un giorno chiuso non cambia piu': i suoi conteggi tag restano in cache.\n// Oggi e ieri vengono sempre riletti (conversazioni ancora in corso,\n// tag applicati a posteriori). Quindi a regime si scarica ~1 pagina,\n// qualunque sia l'ampiezza del range selezionato.\nconst GIORNI_CACHE_MAX = 120;\n\nconst sd = $getWorkflowStaticData('global');\nconst cache = sd.tagGiorni = sd.tagGiorni || {};\n\nfunction giornoISO(dt){ return dt.toISODate(); }\nfunction piu(g, n){ return DateTime.fromISO(g, { zone: TZ }).plus({ days: n }).toISODate(); }\n\nconst oggi = DateTime.now().setZone(TZ).toISODate();\nconst ieri = piu(oggi, -1);\n\n// giorni del range richiesto\nconst giorni = [];\nfor (let g = DA; g <= A; g = piu(g, 1)) giorni.push(g);\n\n// un giorno e' \"fidato\" se e' in cache ED e' chiuso (precedente a ieri)\nconst fidato = g => !!cache[g] && g < ieri;\n\nlet daLeggere = giorni.find(g => !fidato(g)) || null;\n// range interamente in cache: si legge comunque solo oggi, chiamata corta\nif (!daLeggere) daLeggere = oggi;\n// non si scende mai sotto ieri: oggi e ieri sono sempre da rileggere\nif (daLeggere > ieri) daLeggere = ieri;\n\n// potatura cache\nconst chiavi = Object.keys(cache).sort();\nif (chiavi.length > GIORNI_CACHE_MAX){\n  for (const k of chiavi.slice(0, chiavi.length - GIORNI_CACHE_MAX)) delete cache[k];\n}\n\nconst fromUnix = Math.floor(DateTime.fromISO(daLeggere + 'T00:00:00', { zone: TZ }).toSeconds());\n\nreturn [{ json: {\n  range: { from: DA, to: A },\n  leggi_da: daLeggere,\n  from_unix: fromUnix,\n  giorni_richiesti: giorni.length,\n  giorni_da_cache: giorni.filter(fidato).length,\n  oggi, ieri\n} }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1160,
+        0
+      ],
+      "id": "b282b704-e3b0-417f-81a9-cb174fedc7d3",
+      "name": "Tag Finestra"
+    },
+    {
+      "parameters": {
+        "url": "=https://api.eu.residency.elevenlabs.io/v1/convai/conversations?agent_id=agent_2001ktnse3bre338wc0s7zzg2v6c&page_size=100&call_start_after_unix={{ $json.from_unix }}",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
         "options": {
@@ -167,7 +273,7 @@
               "paginationCompleteWhen": "other",
               "completeExpression": "={{ !$response.body.has_more }}",
               "limitPagesFetched": true,
-              "maxRequests": 30
+              "maxRequests": 15
             }
           },
           "response": {
@@ -182,10 +288,10 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        320,
+        1380,
         0
       ],
-      "id": "59daefeb-988d-4305-b302-a4411561deba",
+      "id": "ed9abc44-a864-4949-845a-07e2d53c3ced",
       "name": "Tag Lista ElevenLabs",
       "credentials": {
         "httpHeaderAuth": {
@@ -195,100 +301,19 @@
       },
       "alwaysOutputData": true,
       "onError": "continueRegularOutput",
-      "notes": "Tag conversazione. Unica sorgente non-Directus della tab Analisi. Se fallisce, il blocco tags torna available:false e il resto della risposta non cambia."
+      "notes": "Legge solo dai giorni non ancora in cache (a regime: ieri e oggi). Se fallisce, tags.available=false e il resto della risposta non cambia."
     },
     {
       "parameters": {
-        "jsCode": "/* ============================================================\n   TAG CONVERSAZIONI - passo 1: perimetro e lettura tag dalla lista.\n   Unico blocco della tab Analisi che NON legge da Directus.\n   Fonte: API conversazioni ElevenLabs (agente NANO Marta).\n   Il perimetro e' il RANGE di analisi, non il singolo giorno.\n   ============================================================ */\nconst meta = $('Prep Range').first().json;\nconst DA = meta.range_start;  // YYYY-MM-DD\nconst A  = meta.range_end;    // YYYY-MM-DD\n\nconst TZ = 'Europe/Rome';\n// Tetto di sicurezza: se i tag NON sono nella lista, il fallback sul\n// dettaglio conversazione parte solo sotto questa soglia, per non fare\n// centinaia di chiamate a ogni refresh della dashboard.\nconst MAX_DETTAGLI = 120;\n\nconst daUnix = Math.floor(DateTime.fromISO(DA + 'T00:00:00', { zone: TZ }).toSeconds());\nconst aUnix  = Math.floor(DateTime.fromISO(A  + 'T23:59:59', { zone: TZ }).toSeconds());\n\n/* ---------- estrazione tag ----------------------------------------\n   ElevenLabs non espone i tag sempre nello stesso campo: a seconda\n   della versione API stanno sulla conversazione, dentro metadata o\n   dentro analysis. Invece di fissare un percorso si cerca qualsiasi\n   chiave \"tags\"/\"labels\" con valori stringa, saltando i rami pesanti\n   (transcript, audio). Il campo effettivamente trovato finisce in\n   tags.diag.campi_tag, cosi' e' verificabile con una sola chiamata. */\nconst CHIAVI_TAG = /^(tags|tag|labels|conversation_tags|conversation_labels)$/i;\nconst SALTA = new Set(['transcript', 'messages', 'audio', 'transcript_summary']);\n\nfunction normalizzaTag(v, prof){\n  prof = prof || 0;\n  if (v == null || prof > 3) return [];\n  if (typeof v === 'string'){\n    const s = v.trim();\n    if (!s) return [];\n    if (s.startsWith('[') || s.startsWith('{')){\n      try { return normalizzaTag(JSON.parse(s), prof + 1); } catch(e){}\n    }\n    return s.split(',').map(x => x.trim()).filter(Boolean);\n  }\n  if (Array.isArray(v)) return v.flatMap(x => normalizzaTag(x, prof + 1));\n  if (typeof v === 'object'){\n    const n = v.name ?? v.tag ?? v.label ?? v.value ?? v.tag_name ?? v.title;\n    return n == null ? [] : normalizzaTag(String(n), prof + 1);\n  }\n  return [];\n}\n\nfunction cercaTag(obj, prof, trovati, chiavi){\n  prof = prof || 0;\n  if (!obj || typeof obj !== 'object' || prof > 4) return;\n  for (const k of Object.keys(obj)){\n    if (SALTA.has(k)) continue;\n    const v = obj[k];\n    if (CHIAVI_TAG.test(k)){\n      const t = normalizzaTag(v);\n      if (t.length){ trovati.push(...t); chiavi.add(k); }\n      continue;\n    }\n    if (v && typeof v === 'object') cercaTag(v, prof + 1, trovati, chiavi);\n  }\n}\n\nfunction tagDi(obj, chiavi){\n  const trovati = [];\n  cercaTag(obj, 0, trovati, chiavi);\n  const visti = new Map();\n  for (const t of trovati){\n    const k = String(t).trim().toLowerCase();\n    if (k && !visti.has(k)) visti.set(k, String(t).trim());\n  }\n  return [...visti.values()];\n}\n\n/* ---------- lista conversazioni ---------- */\nfunction pagine(nome){ try { return $(nome).all().map(x => x.json); } catch(e){ return []; } }\n\nconst pg = pagine('Tag Lista ElevenLabs');\nconst haRisposto = pg.some(p => p && Array.isArray(p.conversations));\nconst grezze = pg.flatMap(p => (p && Array.isArray(p.conversations)) ? p.conversations : []);\n\nconst perId = new Map();\nfor (const c of grezze){\n  const k = c && (c.conversation_id || c.id);\n  if (k && !perId.has(k)) perId.set(k, c);\n}\n\nfunction inizio(c){\n  let s = Number(c.start_time_unix_secs ?? c.start_time_unix ?? 0);\n  if (!isFinite(s) || s <= 0) return 0;\n  if (s > 1e12) s = Math.floor(s / 1000);\n  return s;\n}\n\n// Il filtro a monte usa solo call_start_after_unix (parametro certo);\n// il taglio superiore del range si fa qui, in locale.\nconst chiavi = new Set();\nconst conversazioni = [];\nlet fuoriRange = 0, senzaData = 0;\n\nfor (const [id, c] of perId){\n  const s = inizio(c);\n  if (!s) senzaData++;\n  else if (s < daUnix || s > aUnix){ fuoriRange++; continue; }\n  conversazioni.push({ id, unix: s, tags: tagDi(c, chiavi) });\n}\n\nconst conTagInLista = conversazioni.filter(c => c.tags.length).length;\n\n// Il dettaglio serve solo se la lista non porta tag per nessuno.\nconst serveDettaglio = haRisposto\n  && conTagInLista === 0\n  && conversazioni.length > 0\n  && conversazioni.length <= MAX_DETTAGLI;\n\nconst prima = grezze[0] && typeof grezze[0] === 'object' ? Object.keys(grezze[0]) : [];\n\nconst riepilogo = {\n  ha_risposto: haRisposto,\n  range: { from: DA, to: A, from_unix: daUnix, to_unix: aUnix },\n  conversazioni,\n  diag: {\n    pagine_ricevute: pg.length,\n    conversazioni_grezze: grezze.length,\n    nel_range: conversazioni.length,\n    fuori_range: fuoriRange,\n    senza_data: senzaData,\n    con_tag_in_lista: conTagInLista,\n    campi_tag: [...chiavi],\n    chiavi_lista: prima.slice(0, 40),\n    fallback_dettaglio: serveDettaglio,\n    fallback_max: MAX_DETTAGLI,\n    fallback_saltato_per_volume: haRisposto && conTagInLista === 0 && conversazioni.length > MAX_DETTAGLI\n  }\n};\n\nif (!serveDettaglio) return [{ json: { riepilogo, nulla_da_leggere: true } }];\n\nreturn conversazioni.map((c, i) => ({\n  json: i === 0 ? { riepilogo, conversation_id: c.id } : { conversation_id: c.id }\n}));\n"
+        "jsCode": "/* ============================================================\n   TAG - passo 2: conteggi, cache giornaliera, nomi dei tag.\n   La risposta Directus resta identica: si aggiunge solo \"tags\".\n   ============================================================ */\nconst base = $('Aggregate Dashboard').first().json || {};\n\nconst TZ = 'Europe/Rome';\n\nconst fin = $('Tag Finestra').first().json || {};\nconst DA = fin.range?.from, A = fin.range?.to;\nconst ieri = fin.ieri;\n\nconst sd = $getWorkflowStaticData('global');\nconst cache = sd.tagGiorni = sd.tagGiorni || {};\n\nlet catalogo = {}, diagCatalogo = null;\ntry {\n  const c = $('Tag Catalogo Mappa').first().json || {};\n  catalogo = c.catalogo || {};\n  diagCatalogo = c.diag_catalogo || null;\n} catch(e){}\n\n/* ---------- estrazione tag da una conversazione ----------\n   Percorso veloce: sulla lista ElevenLabs i tag stanno in \"tag_ids\"\n   al primo livello. La scansione profonda (costosa su migliaia di\n   oggetti) parte solo se al primo livello non c'e' nulla. */\nconst CHIAVI_NOME = ['tags', 'tag', 'labels', 'conversation_tags', 'tag_names'];\nconst CHIAVI_ID   = ['tag_ids', 'tags_ids', 'tag_id', 'conversation_tag_ids'];\nconst SALTA = new Set(['transcript', 'messages', 'audio', 'transcript_summary']);\n\nfunction valori(v, prof){\n  prof = prof || 0;\n  if (v == null || prof > 3) return [];\n  if (typeof v === 'string'){\n    const s = v.trim();\n    if (!s) return [];\n    if (s.startsWith('[') || s.startsWith('{')){\n      try { return valori(JSON.parse(s), prof + 1); } catch(e){}\n    }\n    return s.split(',').map(x => x.trim()).filter(Boolean);\n  }\n  if (Array.isArray(v)) return v.flatMap(x => valori(x, prof + 1));\n  if (typeof v === 'object'){\n    const n = v.name ?? v.tag ?? v.label ?? v.value ?? v.tag_name ?? v.tag_id ?? v.id;\n    return n == null ? [] : valori(String(n), prof + 1);\n  }\n  return [];\n}\n\nfunction profondo(obj, prof, out, campi){\n  prof = prof || 0;\n  if (!obj || typeof obj !== 'object' || prof > 4) return;\n  for (const k of Object.keys(obj)){\n    if (SALTA.has(k)) continue;\n    const v = obj[k];\n    if (CHIAVI_NOME.includes(k) || CHIAVI_ID.includes(k)){\n      const t = valori(v);\n      if (t.length){ out.push(...t); campi.add(k); }\n      continue;\n    }\n    if (v && typeof v === 'object') profondo(v, prof + 1, out, campi);\n  }\n}\n\nconst campiVisti = new Set();\nfunction tokenDi(c){\n  const out = [];\n  for (const k of CHIAVI_ID.concat(CHIAVI_NOME)){\n    if (c[k] != null){\n      const t = valori(c[k]);\n      if (t.length){ out.push(...t); campiVisti.add(k); }\n    }\n  }\n  if (!out.length) profondo(c, 0, out, campiVisti);\n  const visti = new Map();\n  for (const t of out){\n    const s = String(t).trim(), k = s.toLowerCase();\n    if (k && !visti.has(k)) visti.set(k, s);\n  }\n  return [...visti.values()];\n}\n\n/* ---------- pagine lette ---------- */\nfunction pagine(){ try { return $('Tag Lista ElevenLabs').all().map(x => x.json); } catch(e){ return []; } }\nconst pg = pagine();\nconst haRisposto = pg.some(p => p && Array.isArray(p.conversations));\nconst troncato = pg.length ? pg[pg.length - 1]?.has_more === true : false;\n\nconst grezze = pg.flatMap(p => (p && Array.isArray(p.conversations)) ? p.conversations : []);\nconst perId = new Map();\nfor (const c of grezze){\n  const k = c && (c.conversation_id || c.id);\n  if (k && !perId.has(k)) perId.set(k, c);\n}\n\nfunction inizio(c){\n  let s = Number(c.start_time_unix_secs ?? c.start_time_unix ?? 0);\n  if (!isFinite(s) || s <= 0) return 0;\n  if (s > 1e12) s = Math.floor(s / 1000);\n  return s;\n}\n\n/* ---------- bucket per giorno (token grezzi, non risolti) ---------- */\nfunction vuoto(){ return { c: 0, t: 0, m: 0, a: 0, g: {} }; }\nconst freschi = {};\nlet senzaData = 0;\n\nfor (const [, c] of perId){\n  const s = inizio(c);\n  if (!s){ senzaData++; continue; }\n  const giorno = DateTime.fromSeconds(s, { zone: TZ }).toISODate();\n  const b = freschi[giorno] = freschi[giorno] || vuoto();\n  b.c++;\n  const tk = tokenDi(c);\n  if (!tk.length) continue;\n  b.t++;\n  if (tk.length > 1) b.m++;\n  for (const x of tk){ b.g[x] = (b.g[x] || 0) + 1; b.a++; }\n}\n\n// I giorni chiusi (precedenti a ieri) entrano in cache: non verranno\n// piu' riletti. Oggi e ieri restano fuori, cambiano ancora.\n// Se la lettura e' stata troncata i due giorni di bordo possono essere\n// parziali (a seconda dell'ordine delle pagine) e non vengono salvati.\nconst visti = Object.keys(freschi).sort();\nconst primo = visti[0], ultimo = visti[visti.length - 1];\nfor (const [giorno, b] of Object.entries(freschi)){\n  if (giorno >= ieri) continue;\n  if (troncato && (giorno === primo || giorno === ultimo)) continue;\n  cache[giorno] = b;\n}\n\n/* ---------- somma sul range: cache per i giorni chiusi, fresco per gli altri ---------- */\nfunction piu(g, n){ return DateTime.fromISO(g, { zone: TZ }).plus({ days: n }).toISODate(); }\n\nconst lettoDa = fin.leggi_da || DA;\nconst totale = vuoto();\nlet daCache = 0, daApi = 0, giorniMancanti = 0;\nfor (let g = DA; g && A && g <= A; g = piu(g, 1)){\n  let b = freschi[g];\n  if (b) daApi++;\n  else if (cache[g]){ b = cache[g]; daCache++; }\n  else if (g >= lettoDa && !troncato){ daApi++; continue; }   // giorno letto, zero chiamate\n  else { giorniMancanti++; continue; }                        // giorno mai letto: dato assente\n  totale.c += b.c; totale.t += b.t; totale.m += b.m; totale.a += b.a;\n  for (const [k, v] of Object.entries(b.g || {})) totale.g[k] = (totale.g[k] || 0) + v;\n}\n\n/* ---------- risoluzione token -> nome ---------- */\nconst nonRisolti = new Set();\nconst perNome = new Map();\nfor (const [token, n] of Object.entries(totale.g)){\n  let nome = catalogo[token];\n  if (!nome){\n    // se non e' un id di catalogo puo' essere gia' un nome\n    nome = /^[a-z0-9_-]{16,}$/i.test(token) ? ('id:' + token.slice(0, 12)) : token;\n    if (nome.startsWith('id:')) nonRisolti.add(token);\n  }\n  perNome.set(nome, (perNome.get(nome) || 0) + n);\n}\n\nconst items = [...perNome.entries()]\n  .map(([tag, count]) => ({ tag, count, share: totale.a ? count / totale.a : null }))\n  .sort((a, b) => (b.count - a.count) || a.tag.localeCompare(b.tag, 'it'));\n\nconst diag = {\n  giorni_richiesti: fin.giorni_richiesti ?? null,\n  giorni_da_cache: daCache,\n  giorni_letti_ora: daApi,\n  giorni_senza_dato: giorniMancanti,\n  letto_da: fin.leggi_da || null,\n  pagine_ricevute: pg.length,\n  conversazioni_scaricate: perId.size,\n  senza_data: senzaData,\n  campi_tag: [...campiVisti],\n  catalogo: diagCatalogo,\n  id_non_risolti: [...nonRisolti].slice(0, 20),\n  chiavi_lista: grezze[0] && typeof grezze[0] === 'object' ? Object.keys(grezze[0]).slice(0, 40) : []\n};\n\nlet tags;\nif (!haRisposto){\n  tags = { available: false, source: 'elevenlabs', range: { from: DA, to: A },\n           error: 'ElevenLabs non ha restituito la lista conversazioni', diag };\n} else if (troncato || giorniMancanti > 0){\n  tags = { available: false, source: 'elevenlabs', range: { from: DA, to: A },\n           error: giorniMancanti > 0 && !troncato\n             ? giorniMancanti + ' giorni del periodo non sono ancora stati letti da ElevenLabs'\n             : 'periodo troppo ampio per calcolare i tag in una sola lettura: usa un range piu\\u0027 corto',\n           incomplete: true, days_missing: giorniMancanti, diag };\n} else {\n  tags = {\n    available: true,\n    source: 'elevenlabs',\n    basis: 'conversazioni ElevenLabs con avvio nel range selezionato',\n    range: { from: DA, to: A },\n    conversations_total: totale.c,\n    conversations_with_tags: totale.t,\n    untagged: totale.c - totale.t,\n    multi_tag_conversations: totale.m,\n    assignments_total: totale.a,\n    distinct_tags: items.length,\n    items,\n    diag\n  };\n}\n\nreturn [{ json: Object.assign({}, base, { tags }) }];\n"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        540,
+        1600,
         0
       ],
-      "id": "b65bc39a-45ab-4b56-b9cd-2a4e867273bf",
-      "name": "Tag Prepara"
-    },
-    {
-      "parameters": {
-        "conditions": {
-          "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "loose",
-            "version": 2
-          },
-          "conditions": [
-            {
-              "id": "tag-serve-dettaglio",
-              "leftValue": "={{ $json.conversation_id }}",
-              "rightValue": "",
-              "operator": {
-                "type": "string",
-                "operation": "notEmpty",
-                "singleValue": true
-              }
-            }
-          ],
-          "combinator": "and"
-        },
-        "looseTypeValidation": true,
-        "options": {}
-      },
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2.2,
-      "position": [
-        760,
-        0
-      ],
-      "id": "49a197fd-c7b1-46f5-81a1-c496e6f6d1a5",
-      "name": "Tag Serve Dettaglio?"
-    },
-    {
-      "parameters": {
-        "url": "=https://api.eu.residency.elevenlabs.io/v1/convai/conversations/{{ $json.conversation_id }}",
-        "authentication": "genericCredentialType",
-        "genericAuthType": "httpHeaderAuth",
-        "options": {
-          "response": {
-            "response": {
-              "neverError": true,
-              "responseFormat": "json"
-            }
-          },
-          "timeout": 15000
-        }
-      },
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        980,
-        -140
-      ],
-      "id": "55161615-4075-4a17-a663-d744c28aa338",
-      "name": "Tag Dettaglio Conversazione",
-      "credentials": {
-        "httpHeaderAuth": {
-          "id": "IeYtJrmaQETG8BRn",
-          "name": "ElevenLaps EU - API"
-        }
-      },
-      "alwaysOutputData": true,
-      "onError": "continueRegularOutput",
-      "notes": "Fallback: parte solo se la lista non espone i tag e le conversazioni nel range sono sotto la soglia MAX_DETTAGLI."
-    },
-    {
-      "parameters": {
-        "jsCode": "/* ============================================================\n   TAG CONVERSAZIONI - passo 2: conteggi e merge nella risposta.\n   La risposta Directus resta identica: si aggiunge solo \"tags\".\n   ============================================================ */\nconst base = $('Aggregate Dashboard').first().json || {};\n\nconst prep = $('Tag Prepara').first().json || {};\nconst riepilogo = prep.riepilogo || {};\n\n/* stessa estrazione del nodo \"Tag Prepara\", qui applicata al dettaglio */\nconst CHIAVI_TAG = /^(tags|tag|labels|conversation_tags|conversation_labels)$/i;\nconst SALTA = new Set(['transcript', 'messages', 'audio', 'transcript_summary']);\n\nfunction normalizzaTag(v, prof){\n  prof = prof || 0;\n  if (v == null || prof > 3) return [];\n  if (typeof v === 'string'){\n    const s = v.trim();\n    if (!s) return [];\n    if (s.startsWith('[') || s.startsWith('{')){\n      try { return normalizzaTag(JSON.parse(s), prof + 1); } catch(e){}\n    }\n    return s.split(',').map(x => x.trim()).filter(Boolean);\n  }\n  if (Array.isArray(v)) return v.flatMap(x => normalizzaTag(x, prof + 1));\n  if (typeof v === 'object'){\n    const n = v.name ?? v.tag ?? v.label ?? v.value ?? v.tag_name ?? v.title;\n    return n == null ? [] : normalizzaTag(String(n), prof + 1);\n  }\n  return [];\n}\nfunction cercaTag(obj, prof, trovati, chiavi){\n  prof = prof || 0;\n  if (!obj || typeof obj !== 'object' || prof > 4) return;\n  for (const k of Object.keys(obj)){\n    if (SALTA.has(k)) continue;\n    const v = obj[k];\n    if (CHIAVI_TAG.test(k)){\n      const t = normalizzaTag(v);\n      if (t.length){ trovati.push(...t); chiavi.add(k); }\n      continue;\n    }\n    if (v && typeof v === 'object') cercaTag(v, prof + 1, trovati, chiavi);\n  }\n}\nfunction tagDi(obj, chiavi){\n  const trovati = [];\n  cercaTag(obj, 0, trovati, chiavi);\n  const visti = new Map();\n  for (const t of trovati){\n    const k = String(t).trim().toLowerCase();\n    if (k && !visti.has(k)) visti.set(k, String(t).trim());\n  }\n  return [...visti.values()];\n}\n\nconst conversazioni = Array.isArray(riepilogo.conversazioni)\n  ? riepilogo.conversazioni.map(c => ({ id: c.id, unix: c.unix, tags: [...(c.tags || [])] }))\n  : [];\n\n/* merge dei tag letti dal dettaglio, quando il fallback e' scattato */\nconst chiavi = new Set(riepilogo.diag?.campi_tag || []);\nfunction dettagli(){ try { return $('Tag Dettaglio Conversazione').all().map(x => x.json); } catch(e){ return []; } }\n\nconst indice = new Map(conversazioni.map(c => [c.id, c]));\nlet dettagliLetti = 0, chiaviDettaglio = [];\nfor (const d of dettagli()){\n  if (!d || typeof d !== 'object') continue;\n  const id = d.conversation_id || d.id;\n  if (!id) continue;\n  dettagliLetti++;\n  if (!chiaviDettaglio.length) chiaviDettaglio = Object.keys(d).slice(0, 40);\n  const t = tagDi(d, chiavi);\n  const c = indice.get(id);\n  if (c && t.length) c.tags = [...new Set([...c.tags, ...t])];\n}\n\n/* ---------- conteggi ----------\n   Una conversazione puo' avere piu' tag: \"items\" conta le assegnazioni,\n   non le conversazioni. \"untagged\" conta invece conversazioni intere,\n   ed e' la fetta \"Senza tag\" della torta. */\nconst conteggi = new Map();\nlet conTag = 0, assegnazioni = 0, multiTag = 0;\nfor (const c of conversazioni){\n  const t = c.tags || [];\n  if (!t.length) continue;\n  conTag++;\n  if (t.length > 1) multiTag++;\n  for (const x of t){\n    conteggi.set(x, (conteggi.get(x) || 0) + 1);\n    assegnazioni++;\n  }\n}\n\nconst items = [...conteggi.entries()]\n  .map(([tag, count]) => ({ tag, count, share: assegnazioni ? count / assegnazioni : null }))\n  .sort((a, b) => (b.count - a.count) || a.tag.localeCompare(b.tag, 'it'));\n\nconst disponibile = riepilogo.ha_risposto === true;\n\nconst tags = disponibile ? {\n  available: true,\n  source: 'elevenlabs',\n  basis: 'conversazioni ElevenLabs con avvio nel range selezionato',\n  range: riepilogo.range || null,\n  conversations_total: conversazioni.length,\n  conversations_with_tags: conTag,\n  untagged: conversazioni.length - conTag,\n  multi_tag_conversations: multiTag,\n  assignments_total: assegnazioni,\n  distinct_tags: items.length,\n  items,\n  diag: Object.assign({}, riepilogo.diag, {\n    dettagli_letti: dettagliLetti,\n    campi_tag: [...chiavi],\n    chiavi_dettaglio: chiaviDettaglio\n  })\n} : {\n  available: false,\n  source: 'elevenlabs',\n  error: 'ElevenLabs non ha restituito la lista conversazioni',\n  range: riepilogo.range || null,\n  diag: riepilogo.diag || null\n};\n\nreturn [{ json: Object.assign({}, base, { tags }) }];\n"
-      },
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        1200,
-        0
-      ],
-      "id": "8f49561f-bbe1-40b0-8d7b-7b228a0a7aee",
+      "id": "9f2abaaf-a37a-44e3-bd4a-d1fca0112ce4",
       "name": "Tag Aggrega"
     }
   ],
@@ -353,6 +378,68 @@
       "main": [
         [
           {
+            "node": "Tag Catalogo Candidati",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tag Catalogo Candidati": {
+      "main": [
+        [
+          {
+            "node": "Tag Catalogo Aggiornare?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tag Catalogo Aggiornare?": {
+      "main": [
+        [
+          {
+            "node": "Tag Catalogo ElevenLabs",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Tag Catalogo Mappa",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tag Catalogo ElevenLabs": {
+      "main": [
+        [
+          {
+            "node": "Tag Catalogo Mappa",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tag Catalogo Mappa": {
+      "main": [
+        [
+          {
+            "node": "Tag Finestra",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tag Finestra": {
+      "main": [
+        [
+          {
             "node": "Tag Lista ElevenLabs",
             "type": "main",
             "index": 0
@@ -361,46 +448,6 @@
       ]
     },
     "Tag Lista ElevenLabs": {
-      "main": [
-        [
-          {
-            "node": "Tag Prepara",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Tag Prepara": {
-      "main": [
-        [
-          {
-            "node": "Tag Serve Dettaglio?",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Tag Serve Dettaglio?": {
-      "main": [
-        [
-          {
-            "node": "Tag Dettaglio Conversazione",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Tag Aggrega",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Tag Dettaglio Conversazione": {
       "main": [
         [
           {

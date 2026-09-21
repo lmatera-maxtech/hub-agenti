@@ -27,11 +27,31 @@ window.TabLive = (function(){
     $('avgAll').textContent     = fMin(d.avg_min_all);
     $('avgTransf').textContent  = fMin(d.avg_min_transferred);
     $('transfers').textContent  = fInt(d.transfers_today);
-    $('leads').textContent      = fInt(d.leads_today);
     $('totalCalls').textContent = fInt(d.total_calls_today);
     $('shortCalls').textContent = fInt(d.short_calls_today);
 
+    renderLead(d);
+
     initLiveCalls(d);
+  }
+
+  /* ---------- lead di oggi per motivo ----------
+     Tutti e cinque i box contano le righe call_leads del giorno
+     corrente, raggruppate per reason: una sola fonte, un solo totale.
+     d.leads_today (esito del tool letto da ElevenLabs) resta nella
+     risposta ma non e' piu' mostrato. */
+  function renderLead(d){
+    const r = d.leads_by_reason || {};
+    $('leadNoOperator').textContent      = fInt(r.operatore_non_trovato);
+    $('leadDatiCliente').textContent     = fInt(r.dati_cliente_mancanti);
+    $('leadDatiFornitura').textContent   = fInt(r.dati_fornitura_mancanti);
+    $('leadErrorePratica').textContent   = fInt(r.errore_pratica);
+    $('leadLineaInterrotta').textContent = fInt(r.linea_interrotta);
+
+    const tot = $('leadTotal');
+    if (tot) tot.textContent = d.leads_by_reason
+      ? fInt(r.totale) + ' in totale' + (r.altro ? ' · ' + fInt(r.altro) + ' altro motivo' : '')
+      : 'dato non disponibile';
   }
 
   /* ---------- chiamate in corso: il cronometro avanza in locale ---------- */

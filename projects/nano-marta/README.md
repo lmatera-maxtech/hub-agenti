@@ -239,3 +239,25 @@ Aggregate Dashboard → Tag Lista ElevenLabs → Tag Prepara → Tag Serve Detta
 - Agente letto: `agent_2001ktnse3bre338wc0s7zzg2v6c`.
 - `Tag Aggrega` aggiunge solo la chiave `tags` alla risposta esistente: funnel, trend, handoff ed errori restano invariati.
 - Se ElevenLabs non risponde il box mostra "tag non disponibili" e il resto della tab continua a funzionare.
+
+## Tab Monitoraggio — lead per motivo
+
+Cinque box alimentati dalla collection Directus `call_leads`, tutti sul **giorno corrente** (Europe/Rome, su `date_created`). Il primo è nella riga KPI esistente, gli altri quattro nella riga sotto.
+
+| Box | `reason` conteggiata |
+|---|---|
+| Operatore non disponibile | `OPERATORE NON TROVATO` |
+| Dati cliente mancanti | `DATI CLIENTE MANCANTI` |
+| Dati fornitura mancanti | `DATI FORNITURA MANCANTI` |
+| Errore pratica | `ERRORE PRATICA` |
+| Linea interrotta | `LINEA INTERROTTA` |
+
+Il totale accanto al titolo della riga comprende tutti e cinque i motivi.
+
+### Note
+
+- Una sola query GraphQL per refresh, che chiede il solo campo `reason` sulle righe di oggi: payload minimo, costo trascurabile.
+- Nodo `Lead di oggi` con `neverError` e `onError: continueRegularOutput`: se Directus non risponde i box mostrano `—` e nessun altro KPI viene toccato.
+- I `reason` sono normalizzati (maiuscole, spazi compattati), quindi la grafia a DB può variare. Valori non previsti finiscono nel contatore `altro`, visibile accanto al titolo della riga, ed elencati in `leads_by_reason.motivi_non_mappati`.
+- `leads_today` (esito reale del tool `async_transfer_to_human` letto da ElevenLabs) resta nella risposta del workflow ma non è più mostrato: serve come confronto se i numeri a DB sembrano sballati.
+- `call_leads` non ha un campo agente: se ci scrive anche un altro agente, i conteggi lo includono.

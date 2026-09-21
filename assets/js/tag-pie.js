@@ -67,7 +67,8 @@ window.MaxTechTagPie = (function(){
     const senza = Number(payload.untagged || 0);
     if (senza > 0) items.push({ tag:SENZA_TAG, count:senza, neutro:true, color:NEUTRO });
 
-    if (!items.length) return { stato:'vuoto', payload };
+    // senza nemmeno un tag reale la torta non dice nulla: meglio un messaggio
+    if (!items.some(x => !x.neutro)) return { stato:'vuoto', payload };
     return { stato:'ok', items, payload };
   }
 
@@ -123,7 +124,10 @@ window.MaxTechTagPie = (function(){
       return;
     }
     if (dati.stato === 'vuoto'){
-      messaggio(root, 'Nessuna conversazione ElevenLabs con tag nel periodo selezionato.');
+      const n = dati.payload && dati.payload.conversations_total;
+      messaggio(root, n
+        ? `Nessun tag assegnato alle ${fmtInt(n)} conversazioni ElevenLabs del periodo selezionato.`
+        : 'Nessuna conversazione ElevenLabs nel periodo selezionato.');
       return;
     }
 
@@ -157,7 +161,7 @@ window.MaxTechTagPie = (function(){
     const centro = !selezionate.length
       ? `<b>—</b><span>nessun tag attivo</span>`
       : tuttiAttivi
-        ? `<b>${fmtInt(totaleSel)}</b><span>assegnazioni nel periodo</span>`
+        ? `<b>${fmtInt(totaleSel)}</b><span>totale nel periodo</span>`
         : `<b>${fmtPct(totaleAll ? totaleSel / totaleAll : 0)}</b><span>${fmtInt(totaleSel)} su ${fmtInt(totaleAll)}</span>`;
 
     const conv = p.conversations_total;

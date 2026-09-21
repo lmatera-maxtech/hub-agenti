@@ -19,7 +19,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Confini della giornata su Europe/Rome\nconst now = new Date();\nconst p = Object.fromEntries(new Intl.DateTimeFormat('en-CA', {\n  timeZone: 'Europe/Rome', year:'numeric', month:'2-digit', day:'2-digit',\n  hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:false\n}).formatToParts(now).map(x => [x.type, x.value]));\nconst wallNow = Date.UTC(+p.year, +p.month-1, +p.day, +p.hour, +p.minute, +p.second);\nconst offset  = wallNow - now.getTime();\nconst startMs = Date.UTC(+p.year, +p.month-1, +p.day, 0, 0, 0) - offset;\nreturn [{ json: {\n  giorno:     p.year + '-' + p.month + '-' + p.day,\n  today_unix: Math.floor(startMs/1000),\n  day_start:  new Date(startMs).toISOString(),\n  day_end:    now.toISOString()\n} }];\n"
+        "jsCode": "// Confini della giornata su Europe/Rome\nconst now = new Date();\nconst p = Object.fromEntries(new Intl.DateTimeFormat('en-CA', {\n  timeZone: 'Europe/Rome', year:'numeric', month:'2-digit', day:'2-digit',\n  hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:false\n}).formatToParts(now).map(x => [x.type, x.value]));\nconst wallNow = Date.UTC(+p.year, +p.month-1, +p.day, +p.hour, +p.minute, +p.second);\nconst offset  = wallNow - now.getTime();\n// arrotondato al secondo: startMs finisce esattamente sulla mezzanotte\n// locale, senza il residuo di millisecondi di now(). Serve perche' ora\n// e' anche il confine della query lead su Directus.\nconst startMs = Math.floor((Date.UTC(+p.year, +p.month-1, +p.day, 0, 0, 0) - offset) / 1000) * 1000;\nconst day_start = new Date(startMs).toISOString();\n\n// ---- Lead di oggi (Directus) ----------------------------------------\n// Collection con i campi date_created / reason / conversation_id:\n// alimenta tutti e cinque i box \"lead per motivo\" della tab.\nconst COLLEZIONE_LEAD = 'call_leads';\n\n// Solo il campo \"reason\": il payload resta minimo anche a fine giornata.\nconst lead_query = 'query LeadOggi { ' + COLLEZIONE_LEAD +\n  '( limit: -1 filter: { date_created: { _gte: \"' + day_start + '\" } } ) { reason } }';\n\nreturn [{ json: {\n  giorno:     p.year + '-' + p.month + '-' + p.day,\n  today_unix: Math.floor(startMs/1000),\n  day_start,\n  day_end:    now.toISOString(),\n  collezione_lead: COLLEZIONE_LEAD,\n  lead_query\n} }];\n"
       },
       "id": "8726f84b-057f-4356-84a8-63f6df4c3be6",
       "name": "Prep giorno",
@@ -59,7 +59,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        -432,
+        -500,
         96
       ],
       "alwaysOutputData": true,
@@ -73,7 +73,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Trasferimenti e lead dall'esito REALE del tool, non da un giudizio dell'LLM.\n// La risposta del flusso \"Richiesta operatore\" e nei tool_results della conversazione.\nconst rip = $('Chiamate di oggi').first().json.riepilogo || {};\nconst sd  = $getWorkflowStaticData('global');\nsd.esiti = sd.esiti || {};\n\nfunction dettagli(){ try { return $('Dettaglio conversazione').all().map(x => x.json); } catch(e){ return []; } }\n\nfunction esitoDi(det){\n  let out = null;\n  for (const t of (det && det.transcript) || []){\n    for (const r of t.tool_results || []){\n      if (r.tool_name !== 'async_transfer_to_human') continue;\n      let v = r.result_value;\n      if (typeof v === 'string' && v.indexOf('Background task completed:') === 0){\n        try { v = JSON.parse(v.replace(/^Background task completed:\\s*/,'')).tool_result.result_value; }\n        catch(e){ continue; }\n      }\n      let p = v;\n      if (typeof p === 'string'){ try { p = JSON.parse(p); } catch(e){ p = { message: String(v) }; } }\n      if (!p || typeof p !== 'object') continue;\n      if (p.status === 'in_progress') continue;                 // solo presa in carico\n      const msg = String(p.message || '');\n      if (/gi[aà] in corso/i.test(msg)) continue;               // richiesta duplicata\n      if (p.result === 'SUCCESS') return 'TRASFERITO';          // se aggiungi result allo schema del tool\n      if (p.result === 'FAIL'){ out = 'LEAD'; continue; }\n      if (/specialista libero|passo subito/i.test(msg)) return 'TRASFERITO';\n      if (/occupati/i.test(msg)) out = 'LEAD';\n    }\n  }\n  return out;\n}\n\n// esiti freschi dai dettagli scaricati in questo giro\nfor (const det of dettagli()){\n  const id = det && det.conversation_id;\n  if (!id) continue;\n  const e = esitoDi(det);\n  const chiusa = det.status !== 'in-progress' && det.status !== 'in_progress';\n  if (chiusa) sd.esiti[id] = e || 'NESSUNO';   // anche NESSUNO, per non riscaricarla ogni 3 minuti\n  det.__esito = e;\n}\nconst freschi = {};\nfor (const det of dettagli()){ if (det && det.conversation_id) freschi[det.conversation_id] = det.__esito; }\n\nconst candidati = Array.isArray(rip.candidati) ? rip.candidati : [];\nlet transfers = 0, leads = 0, richieste = 0;\nconst durTrasf = [], durRich = [];\nfor (const c of candidati){\n  const e = (c.id in freschi) ? freschi[c.id] : (sd.esiti[c.id] === 'NESSUNO' ? null : sd.esiti[c.id]);\n  if (e === 'TRASFERITO'){ transfers++; richieste++; if (c.dur>0){ durTrasf.push(c.dur); durRich.push(c.dur); } }\n  else if (e === 'LEAD'){ leads++; richieste++; if (c.dur>0) durRich.push(c.dur); }\n}\n// senza risposta dalla lista non inventiamo zeri\nconst nd = rip.ha_risposto === false;\nconst media = a => a.length ? a.reduce((s,x)=>s+x,0)/a.length/60 : null;\nconst r1 = v => v==null ? null : Math.round(v*10)/10;\n\nreturn [{ json:{\n  live_calls:              rip.live_calls ?? null,\n  live_durations:          rip.live_durations || [],\n  avg_min_all:             r1(rip.avg_sec_all==null ? null : rip.avg_sec_all/60),\n  avg_min_transferred:     r1(media(durTrasf)),\n  total_calls_today:       rip.total_calls ?? null,\n  short_calls_today:       rip.short_calls ?? null,\n  transfers_today:         nd ? null : transfers,\n  leads_today:             nd ? null : leads,\n  handoff_requested_today: nd ? null : richieste,\n  avg_min_handoff:         r1(media(durRich)),\n  updated_at:              new Date().toISOString()\n} }];\n"
+        "jsCode": "// Trasferimenti e lead dall'esito REALE del tool, non da un giudizio dell'LLM.\n// La risposta del flusso \"Richiesta operatore\" e nei tool_results della conversazione.\nconst rip = $('Chiamate di oggi').first().json.riepilogo || {};\nconst sd  = $getWorkflowStaticData('global');\nsd.esiti = sd.esiti || {};\n\nfunction dettagli(){ try { return $('Dettaglio conversazione').all().map(x => x.json); } catch(e){ return []; } }\n\nfunction esitoDi(det){\n  let out = null;\n  for (const t of (det && det.transcript) || []){\n    for (const r of t.tool_results || []){\n      if (r.tool_name !== 'async_transfer_to_human') continue;\n      let v = r.result_value;\n      if (typeof v === 'string' && v.indexOf('Background task completed:') === 0){\n        try { v = JSON.parse(v.replace(/^Background task completed:\\s*/,'')).tool_result.result_value; }\n        catch(e){ continue; }\n      }\n      let p = v;\n      if (typeof p === 'string'){ try { p = JSON.parse(p); } catch(e){ p = { message: String(v) }; } }\n      if (!p || typeof p !== 'object') continue;\n      if (p.status === 'in_progress') continue;                 // solo presa in carico\n      const msg = String(p.message || '');\n      if (/gi[aà] in corso/i.test(msg)) continue;               // richiesta duplicata\n      if (p.result === 'SUCCESS') return 'TRASFERITO';          // se aggiungi result allo schema del tool\n      if (p.result === 'FAIL'){ out = 'LEAD'; continue; }\n      if (/specialista libero|passo subito/i.test(msg)) return 'TRASFERITO';\n      if (/occupati/i.test(msg)) out = 'LEAD';\n    }\n  }\n  return out;\n}\n\n// esiti freschi dai dettagli scaricati in questo giro\nfor (const det of dettagli()){\n  const id = det && det.conversation_id;\n  if (!id) continue;\n  const e = esitoDi(det);\n  const chiusa = det.status !== 'in-progress' && det.status !== 'in_progress';\n  if (chiusa) sd.esiti[id] = e || 'NESSUNO';   // anche NESSUNO, per non riscaricarla ogni 3 minuti\n  det.__esito = e;\n}\nconst freschi = {};\nfor (const det of dettagli()){ if (det && det.conversation_id) freschi[det.conversation_id] = det.__esito; }\n\nconst candidati = Array.isArray(rip.candidati) ? rip.candidati : [];\nlet transfers = 0, leads = 0, richieste = 0;\nconst durTrasf = [], durRich = [];\nfor (const c of candidati){\n  const e = (c.id in freschi) ? freschi[c.id] : (sd.esiti[c.id] === 'NESSUNO' ? null : sd.esiti[c.id]);\n  if (e === 'TRASFERITO'){ transfers++; richieste++; if (c.dur>0){ durTrasf.push(c.dur); durRich.push(c.dur); } }\n  else if (e === 'LEAD'){ leads++; richieste++; if (c.dur>0) durRich.push(c.dur); }\n}\n/* ---------- Lead di oggi per motivo (Directus) ----------\n   I motivi sono normalizzati (maiuscole, spazi) per non dipendere da\n   come sono scritti a DB. Quelli non previsti finiscono in \"altro\" e\n   restano elencati in motivi_non_mappati, cosi' si vedono subito. */\nconst MOTIVI = new Map([\n  ['OPERATORE NON TROVATO',   'operatore_non_trovato'],\n  ['DATI CLIENTE MANCANTI',   'dati_cliente_mancanti'],\n  ['DATI FORNITURA MANCANTI', 'dati_fornitura_mancanti'],\n  ['ERRORE PRATICA',          'errore_pratica'],\n  ['LINEA INTERROTTA',        'linea_interrotta']\n]);\n\nfunction righeLead(){\n  try {\n    const risp = $('Lead di oggi').first().json;\n    const coll = $('Prep giorno').first().json.collezione_lead;\n    const righe = risp && risp.data && risp.data[coll];\n    return Array.isArray(righe) ? righe : null;\n  } catch(e){ return null; }\n}\n\nconst righe = righeLead();\nlet leadPerMotivo = null;\nif (righe){\n  leadPerMotivo = { totale: righe.length, altro: 0 };\n  for (const k of MOTIVI.values()) leadPerMotivo[k] = 0;\n  const ignoti = new Set();\n  for (const r of righe){\n    const m = String((r && r.reason) || '').trim().toUpperCase().replace(/\\s+/g, ' ');\n    const k = MOTIVI.get(m);\n    if (k) leadPerMotivo[k]++;\n    else { leadPerMotivo.altro++; if (m) ignoti.add(m); }\n  }\n  leadPerMotivo.motivi_non_mappati = [...ignoti].slice(0, 10);\n}\n\n// senza risposta dalla lista non inventiamo zeri\nconst nd = rip.ha_risposto === false;\nconst media = a => a.length ? a.reduce((s,x)=>s+x,0)/a.length/60 : null;\nconst r1 = v => v==null ? null : Math.round(v*10)/10;\n\nreturn [{ json:{\n  live_calls:              rip.live_calls ?? null,\n  live_durations:          rip.live_durations || [],\n  avg_min_all:             r1(rip.avg_sec_all==null ? null : rip.avg_sec_all/60),\n  avg_min_transferred:     r1(media(durTrasf)),\n  total_calls_today:       rip.total_calls ?? null,\n  short_calls_today:       rip.short_calls ?? null,\n  transfers_today:         nd ? null : transfers,\n  leads_today:             nd ? null : leads,\n  handoff_requested_today: nd ? null : richieste,\n  leads_by_reason:         leadPerMotivo,\n  avg_min_handoff:         r1(media(durRich)),\n  updated_at:              new Date().toISOString()\n} }];\n"
       },
       "id": "7b19bd51-b4e2-4904-9bf3-f46056b6f634",
       "name": "Aggrega",
@@ -184,6 +184,44 @@
         }
       },
       "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.DIRECTUS_ENDPOINT }}/graphql",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.DIRECTUS_TOKEN }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { query: $json.lead_query } }}",
+        "options": {
+          "timeout": 8000,
+          "response": {
+            "response": {
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -672,
+        96
+      ],
+      "id": "78b2fdb0-0660-47ed-94e2-69ab884f4447",
+      "name": "Lead di oggi",
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput",
+      "notes": "Lead di oggi per motivo. Unica lettura Directus di questa tab: se fallisce i 5 box mostrano '-' e il resto non cambia."
     }
   ],
   "connections": {
@@ -202,7 +240,7 @@
       "main": [
         [
           {
-            "node": "ElevenLabs",
+            "node": "Lead di oggi",
             "type": "main",
             "index": 0
           }
@@ -265,6 +303,17 @@
         [
           {
             "node": "Aggrega",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lead di oggi": {
+      "main": [
+        [
+          {
+            "node": "ElevenLabs",
             "type": "main",
             "index": 0
           }
