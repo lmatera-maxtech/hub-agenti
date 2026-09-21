@@ -120,6 +120,59 @@ window.TabLive = (function(){
     summaryEl.textContent = counts.over + ' sopra la media';
   }
 
+  /* ---------- tooltip dei box lead ----------
+     Il tooltip vive sul body, non dentro la card: le .kpi hanno
+     overflow:hidden e lo taglierebbero. Hover, focus da tastiera e
+     tap sono tutti gestiti. */
+  function initTips(){
+    const esc = t => String(t == null ? '' : t).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+    let tip = document.getElementById('kpiTip');
+    if (!tip){
+      tip = document.createElement('div');
+      tip.id = 'kpiTip'; tip.className = 'ktip'; tip.setAttribute('role','tooltip');
+      tip.hidden = true;
+      document.body.appendChild(tip);
+    }
+    let attivo = null;
+
+    function posiziona(btn){
+      const r = btn.getBoundingClientRect();
+      tip.style.left = '0px'; tip.style.top = '0px';
+      const t = tip.getBoundingClientRect();
+      let left = r.left + r.width / 2 - t.width / 2;
+      left = Math.max(10, Math.min(left, window.innerWidth - t.width - 10));
+      let top = r.top - t.height - 10;
+      if (top < 10) top = r.bottom + 10;
+      tip.style.left = Math.round(left) + 'px';
+      tip.style.top  = Math.round(top) + 'px';
+    }
+    function mostra(btn){
+      attivo = btn;
+      tip.innerHTML = '<b>' + esc(btn.dataset.tipName) + '</b><p>' + esc(btn.dataset.tip) + '</p>'
+        + (btn.dataset.reason ? '<code>reason: ' + esc(btn.dataset.reason) + '</code>' : '');
+      tip.hidden = false;
+      posiziona(btn);
+    }
+    function nascondi(){ tip.hidden = true; attivo = null; }
+
+    document.querySelectorAll('.kinfo').forEach(btn => {
+      btn.addEventListener('pointerenter', () => { if (btn.matches(':hover')) mostra(btn); });
+      btn.addEventListener('pointerleave', () => { if (attivo === btn) nascondi(); });
+      btn.addEventListener('focus', () => mostra(btn));
+      btn.addEventListener('blur',  () => { if (attivo === btn) nascondi(); });
+      btn.addEventListener('click', e => {
+        e.preventDefault(); e.stopPropagation();
+        attivo === btn ? nascondi() : mostra(btn);
+      });
+    });
+
+    document.addEventListener('click', e => { if (attivo && !e.target.closest('.kinfo')) nascondi(); });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape' && attivo) nascondi(); });
+    window.addEventListener('scroll', () => { if (attivo) posiziona(attivo); }, true);
+    window.addEventListener('resize', nascondi);
+  }
+
   /* ---------- ciclo di aggiornamento ---------- */
   async function poll(){
     const res = await fetchJson(C.endpoint, C.timeoutMs);
@@ -129,7 +182,9 @@ window.TabLive = (function(){
     window.App && window.App.syncHeader();
   }
 
+  let tipsPronti = false;
   function start(){
+    if (!tipsPronti){ initTips(); tipsPronti = true; }
     if (!pollTimer){ poll(); pollTimer = setInterval(poll, C.pollMs); }
     if (!tickTimer){ tickTimer = setInterval(tick, 1000); }   // cronometro locale
   }

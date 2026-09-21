@@ -254,6 +254,8 @@ Cinque box alimentati dalla collection Directus `call_leads`, tutti sul **giorno
 
 Il totale accanto al titolo della riga comprende tutti e cinque i motivi.
 
+Ogni box ha un'icona info: al passaggio del mouse (o al tap su mobile, o via tastiera con Tab) mostra il nome della lead generata, cosa la produce e il valore `reason` corrispondente a DB. I testi stanno negli attributi `data-tip-name` / `data-tip` / `data-reason` in `index.html`, uno per box: si modificano lì senza toccare JS o CSS.
+
 ### Note
 
 - Una sola query GraphQL per refresh, che chiede il solo campo `reason` sulle righe di oggi: payload minimo, costo trascurabile.

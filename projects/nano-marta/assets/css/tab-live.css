@@ -94,3 +94,16 @@
 .leadrow{ display:flex; flex-direction:column; gap:10px; }
 .leadrow-head{ display:flex; align-items:baseline; justify-content:space-between; gap:10px; font-family:'Montserrat',sans-serif; font-size:9px; font-weight:600; text-transform:uppercase; letter-spacing:.1em; color:var(--faint); }
 .leadrow-tot{ font-family:'Manrope',sans-serif; font-size:13px; font-weight:700; letter-spacing:0; text-transform:none; color:var(--accent); font-variant-numeric:tabular-nums; }
+
+/* ---------- pulsante info + tooltip ---------- */
+.kinfo{ margin-left:auto; flex:0 0 auto; display:inline-flex; align-items:center; justify-content:center; width:20px; height:20px; padding:0; border:0; border-radius:50%; background:transparent; color:var(--faint); cursor:pointer; opacity:.55; transition:opacity .15s ease, color .15s ease, background .15s ease; -webkit-tap-highlight-color:transparent; }
+.kinfo svg{ width:14px; height:14px; }
+.kpi:hover .kinfo{ opacity:.9; }
+.kinfo:hover,.kinfo:focus-visible{ opacity:1; color:var(--accent); background:rgba(230,6,225,.10); outline:none; }
+.kinfo:focus-visible{ box-shadow:0 0 0 2px rgba(230,6,225,.45); }
+
+.ktip{ position:fixed; z-index:120; max-width:min(320px,calc(100vw - 20px)); padding:12px 14px; border-radius:11px; background:#1A0F1A; border:1px solid rgba(230,6,225,.30); box-shadow:0 14px 34px rgba(0,0,0,.55); pointer-events:none; }
+.ktip[hidden]{ display:none; }
+.ktip b{ display:block; font-family:'Montserrat',sans-serif; font-size:9.5px; font-weight:700; letter-spacing:.06em; text-transform:none; color:var(--accent); word-break:break-word; }
+.ktip p{ margin:7px 0 0; font-size:12.5px; line-height:1.45; color:var(--txt); }
+.ktip code{ display:block; margin-top:9px; padding-top:8px; border-top:1px solid rgba(199,171,193,.14); font-size:10.5px; color:var(--faint); }
