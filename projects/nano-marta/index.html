@@ -11,6 +11,7 @@
 <link href="assets/css/tab-live.css" rel="stylesheet"/>
 <link href="assets/css/tab-dettaglio.css" rel="stylesheet"/>
 <link href="../../assets/css/maxtech-shell.css" rel="stylesheet"/>
+<link href="../../assets/css/tag-pie.css" rel="stylesheet"/>
 </head>
 <body class="project-nano-marta" data-project="nano-marta">
 <div class="maxtech-globalbar">
@@ -116,6 +117,7 @@
 <button type="button" data-scroll="an-sec-funnel">Funnel</button>
 <button type="button" data-scroll="an-sec-blocks">Blocchi</button>
 <button type="button" data-scroll="an-sec-trend">Trend</button>
+<button type="button" data-scroll="an-sec-tags">Tag</button>
 </nav>
 <section class="analysis-section" id="an-sec-calls">
 <div class="analysis-sechead"><div class="analysis-sectitle"><h3>Chiamate</h3><p>Fotografia del giorno selezionato</p></div><p id="analysisDayLabel">—</p></div>
@@ -185,6 +187,11 @@
 <div class="analysis-rankpanel"><h4>Blocchi principali del periodo</h4><div class="analysis-note">Ordinati per incidenza sulle chiamate che non arrivano alla richiesta operatore.</div><div id="rangeBlocks"></div></div>
 </div>
 </section>
+<section class="analysis-section" id="an-sec-tags">
+<div class="analysis-sechead"><div class="analysis-sectitle"><span class="analysis-viewtag">Tag conversazione · ElevenLabs</span><h3>Distribuzione dei tag</h3><p>Tag assegnati alle conversazioni ElevenLabs con avvio nel range selezionato. Clicca un tag per escluderlo: le percentuali si ricalcolano sui soli tag selezionati.</p></div><p id="tagsRangeLabel">—</p></div>
+<div class="analysis-tagpanel"><div id="tagsBox"></div></div>
+<div class="analysis-note">Unico blocco della tab che non arriva da Directus: la fonte è l'API conversazioni di ElevenLabs.</div>
+</section>
 <div class="analysis-quality-row"><button class="analysis-quality-btn" id="qualityBtn">Qualità dati</button><span class="analysis-quality-summary" id="qualitySummary">—</span></div>
 <div class="analysis-quality" id="quality"><ul id="qualityList"></ul></div>
 <div class="gate-lockrow"><button class="gate-lockbtn" id="gateLock">Blocca la sezione</button></div>
@@ -199,6 +206,7 @@
 <script src="assets/js/config.js"></script>
 <script src="assets/js/utils.js"></script>
 <script src="assets/js/tab-live.js"></script>
+<script src="../../assets/js/tag-pie.js"></script>
 <script src="assets/js/tab-dettaglio.js"></script>
 <script src="assets/js/app.js"></script>
 <script src="../../assets/js/maxtech-shell.js"></script>

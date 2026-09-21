@@ -224,3 +224,18 @@ Content-Type: application/json; charset=utf-8
 ```
 
 necessari per il frontend statico.
+
+## Tag conversazione (ElevenLabs) — aggiunta v1.8
+
+In fondo alla tab Analisi c'è la sezione **Distribuzione dei tag** (`#an-sec-tags`): torta dei tag delle conversazioni ElevenLabs con avvio nel **range di analisi** selezionato (non nel singolo giorno).
+
+Nel workflow `n8n/dashboard-marta-dettaglio.json` la catena tag sta fra `Aggregate Dashboard` e `Respond to Webhook`:
+
+```text
+Aggregate Dashboard → Tag Lista ElevenLabs → Tag Prepara → Tag Serve Dettaglio? → (Tag Dettaglio Conversazione) → Tag Aggrega → Respond to Webhook
+```
+
+- Credenziale header richiesta: `ElevenLaps EU - API` (la stessa usata da `dashboard-live-v3.json`).
+- Agente letto: `agent_2001ktnse3bre338wc0s7zzg2v6c`.
+- `Tag Aggrega` aggiunge solo la chiave `tags` alla risposta esistente: funnel, trend, handoff ed errori restano invariati.
+- Se ElevenLabs non risponde il box mostra "tag non disponibili" e il resto della tab continua a funzionare.

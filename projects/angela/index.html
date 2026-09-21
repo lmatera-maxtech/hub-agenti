@@ -7,6 +7,7 @@
   <title>MaxTech · Angela Screening</title>
   <link rel="stylesheet" href="assets/css/base.css">
   <link rel="stylesheet" href="../../assets/css/maxtech-shell.css">
+  <link rel="stylesheet" href="../../assets/css/tag-pie.css">
 </head>
 <body class="project-angela" data-project="angela">
 <div class="maxtech-globalbar">
@@ -109,6 +110,15 @@
         <article class="card"><div class="card-head"><div><span class="eyebrow">Trend giornaliero</span><h3>Dettaglio periodo</h3></div></div><div class="table-wrap"><table><thead><tr><th>Data</th><th>Registrate</th><th>Completati</th><th>% complet.</th><th>Spam</th><th>% spam su completati</th><th>% respondent classificato</th></tr></thead><tbody id="trendTable"></tbody></table></div><div id="trendCards" class="trend-cards"></div></article>
 
         <article class="card data-quality-card"><div class="card-head"><div><span class="eyebrow">Copertura</span><h3>Qualità dati</h3></div></div><div id="analysisQuality" class="quality-grid"></div></article>
+
+        <article class="card tags-card">
+          <div class="card-head">
+            <div><span class="eyebrow">Tag conversazione · ElevenLabs</span><h3>Distribuzione dei tag</h3></div>
+            <span class="badge state">ELEVENLABS</span>
+          </div>
+          <div id="tagsBox" class="tags-box"></div>
+          <p class="note">Unico blocco della tab che non arriva da Directus: i tag sono letti direttamente da ElevenLabs sulle conversazioni con avvio nel range. Clicca un tag per escluderlo: le percentuali si ricalcolano sui soli tag selezionati.</p>
+        </article>
       </div>
     </section>
   </main>
@@ -116,6 +126,7 @@
 </div>
 <script src="assets/js/config.js"></script>
 <script src="assets/js/utils.js"></script>
+<script src="../../assets/js/tag-pie.js"></script>
 <script src="assets/js/monitoraggio.js"></script>
 <script src="assets/js/analisi.js"></script>
 <script src="assets/js/app.js"></script>

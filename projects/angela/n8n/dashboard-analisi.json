@@ -1,5 +1,5 @@
 {
-  "name": "Dashboard Angela - Analisi - Reviewed V2",
+  "name": "Dashboard Angela - Analisi - Reviewed V2 + Tag",
   "nodes": [
     {
       "parameters": {
@@ -250,8 +250,8 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.4,
       "position": [
-        1580,
-        -130
+        2900,
+        -300
       ]
     },
     {
@@ -286,6 +286,149 @@
         1580,
         20
       ]
+    },
+    {
+      "parameters": {
+        "url": "=https://api.eu.residency.elevenlabs.io/v1/convai/conversations?agent_id=agent_9101kx660zetfe6a1b9t9rgqkhfk&page_size=100&call_start_after_unix={{ Math.floor(DateTime.fromISO($('Validate Range').first().json.from_local + 'T00:00:00', { zone: 'Europe/Rome' }).toSeconds()) }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "pagination": {
+            "pagination": {
+              "parameters": {
+                "parameters": [
+                  {
+                    "name": "cursor",
+                    "value": "={{ $response.body.next_cursor }}"
+                  }
+                ]
+              },
+              "paginationCompleteWhen": "other",
+              "completeExpression": "={{ !$response.body.has_more }}",
+              "limitPagesFetched": true,
+              "maxRequests": 30
+            }
+          },
+          "response": {
+            "response": {
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          },
+          "timeout": 20000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1800,
+        -300
+      ],
+      "id": "ef807937-f0a5-40b7-9cd2-8cf9d38ce665",
+      "name": "Tag Lista ElevenLabs",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "IeYtJrmaQETG8BRn",
+          "name": "ElevenLaps EU - API"
+        }
+      },
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput",
+      "notes": "Tag conversazione. Unica sorgente non-Directus della tab Analisi. Se fallisce, il blocco tags torna available:false e il resto della risposta non cambia."
+    },
+    {
+      "parameters": {
+        "jsCode": "/* ============================================================\n   TAG CONVERSAZIONI - passo 1: perimetro e lettura tag dalla lista.\n   Unico blocco della tab Analisi che NON legge da Directus.\n   Fonte: API conversazioni ElevenLabs (agente Angela).\n   ============================================================ */\nconst meta = $('Validate Range').first().json;\nconst DA = meta.from_local;   // YYYY-MM-DD\nconst A  = meta.to_local;     // YYYY-MM-DD\n\nconst TZ = 'Europe/Rome';\n// Tetto di sicurezza: se i tag NON sono nella lista, il fallback sul\n// dettaglio conversazione parte solo sotto questa soglia, per non fare\n// centinaia di chiamate a ogni refresh della dashboard.\nconst MAX_DETTAGLI = 120;\n\nconst daUnix = Math.floor(DateTime.fromISO(DA + 'T00:00:00', { zone: TZ }).toSeconds());\nconst aUnix  = Math.floor(DateTime.fromISO(A  + 'T23:59:59', { zone: TZ }).toSeconds());\n\n/* ---------- estrazione tag ----------------------------------------\n   ElevenLabs non espone i tag sempre nello stesso campo: a seconda\n   della versione API stanno sulla conversazione, dentro metadata o\n   dentro analysis. Invece di fissare un percorso si cerca qualsiasi\n   chiave \"tags\"/\"labels\" con valori stringa, saltando i rami pesanti\n   (transcript, audio). Il campo effettivamente trovato finisce in\n   tags.diag.campi_tag, cosi' e' verificabile con una sola chiamata. */\nconst CHIAVI_TAG = /^(tags|tag|labels|conversation_tags|conversation_labels)$/i;\nconst SALTA = new Set(['transcript', 'messages', 'audio', 'transcript_summary']);\n\nfunction normalizzaTag(v, prof){\n  prof = prof || 0;\n  if (v == null || prof > 3) return [];\n  if (typeof v === 'string'){\n    const s = v.trim();\n    if (!s) return [];\n    if (s.startsWith('[') || s.startsWith('{')){\n      try { return normalizzaTag(JSON.parse(s), prof + 1); } catch(e){}\n    }\n    return s.split(',').map(x => x.trim()).filter(Boolean);\n  }\n  if (Array.isArray(v)) return v.flatMap(x => normalizzaTag(x, prof + 1));\n  if (typeof v === 'object'){\n    const n = v.name ?? v.tag ?? v.label ?? v.value ?? v.tag_name ?? v.title;\n    return n == null ? [] : normalizzaTag(String(n), prof + 1);\n  }\n  return [];\n}\n\nfunction cercaTag(obj, prof, trovati, chiavi){\n  prof = prof || 0;\n  if (!obj || typeof obj !== 'object' || prof > 4) return;\n  for (const k of Object.keys(obj)){\n    if (SALTA.has(k)) continue;\n    const v = obj[k];\n    if (CHIAVI_TAG.test(k)){\n      const t = normalizzaTag(v);\n      if (t.length){ trovati.push(...t); chiavi.add(k); }\n      continue;\n    }\n    if (v && typeof v === 'object') cercaTag(v, prof + 1, trovati, chiavi);\n  }\n}\n\nfunction tagDi(obj, chiavi){\n  const trovati = [];\n  cercaTag(obj, 0, trovati, chiavi);\n  const visti = new Map();\n  for (const t of trovati){\n    const k = String(t).trim().toLowerCase();\n    if (k && !visti.has(k)) visti.set(k, String(t).trim());\n  }\n  return [...visti.values()];\n}\n\n/* ---------- lista conversazioni ---------- */\nfunction pagine(nome){ try { return $(nome).all().map(x => x.json); } catch(e){ return []; } }\n\nconst pg = pagine('Tag Lista ElevenLabs');\nconst haRisposto = pg.some(p => p && Array.isArray(p.conversations));\nconst grezze = pg.flatMap(p => (p && Array.isArray(p.conversations)) ? p.conversations : []);\n\nconst perId = new Map();\nfor (const c of grezze){\n  const k = c && (c.conversation_id || c.id);\n  if (k && !perId.has(k)) perId.set(k, c);\n}\n\nfunction inizio(c){\n  let s = Number(c.start_time_unix_secs ?? c.start_time_unix ?? 0);\n  if (!isFinite(s) || s <= 0) return 0;\n  if (s > 1e12) s = Math.floor(s / 1000);\n  return s;\n}\n\n// Il filtro a monte usa solo call_start_after_unix (parametro certo);\n// il taglio superiore del range si fa qui, in locale.\nconst chiavi = new Set();\nconst conversazioni = [];\nlet fuoriRange = 0, senzaData = 0;\n\nfor (const [id, c] of perId){\n  const s = inizio(c);\n  if (!s) senzaData++;\n  else if (s < daUnix || s > aUnix){ fuoriRange++; continue; }\n  conversazioni.push({ id, unix: s, tags: tagDi(c, chiavi) });\n}\n\nconst conTagInLista = conversazioni.filter(c => c.tags.length).length;\n\n// Il dettaglio serve solo se la lista non porta tag per nessuno.\nconst serveDettaglio = haRisposto\n  && conTagInLista === 0\n  && conversazioni.length > 0\n  && conversazioni.length <= MAX_DETTAGLI;\n\nconst prima = grezze[0] && typeof grezze[0] === 'object' ? Object.keys(grezze[0]) : [];\n\nconst riepilogo = {\n  ha_risposto: haRisposto,\n  range: { from: DA, to: A, from_unix: daUnix, to_unix: aUnix },\n  conversazioni,\n  diag: {\n    pagine_ricevute: pg.length,\n    conversazioni_grezze: grezze.length,\n    nel_range: conversazioni.length,\n    fuori_range: fuoriRange,\n    senza_data: senzaData,\n    con_tag_in_lista: conTagInLista,\n    campi_tag: [...chiavi],\n    chiavi_lista: prima.slice(0, 40),\n    fallback_dettaglio: serveDettaglio,\n    fallback_max: MAX_DETTAGLI,\n    fallback_saltato_per_volume: haRisposto && conTagInLista === 0 && conversazioni.length > MAX_DETTAGLI\n  }\n};\n\nif (!serveDettaglio) return [{ json: { riepilogo, nulla_da_leggere: true } }];\n\nreturn conversazioni.map((c, i) => ({\n  json: i === 0 ? { riepilogo, conversation_id: c.id } : { conversation_id: c.id }\n}));\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2020,
+        -300
+      ],
+      "id": "1c0531cf-4c20-4b1f-a232-25148ada8f2f",
+      "name": "Tag Prepara"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "tag-serve-dettaglio",
+              "leftValue": "={{ $json.conversation_id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2240,
+        -300
+      ],
+      "id": "0ff1a7ec-341a-4fe8-8fbc-63c7557df271",
+      "name": "Tag Serve Dettaglio?"
+    },
+    {
+      "parameters": {
+        "url": "=https://api.eu.residency.elevenlabs.io/v1/convai/conversations/{{ $json.conversation_id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          },
+          "timeout": 15000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        2460,
+        -440
+      ],
+      "id": "30bbe8de-7d08-473f-8935-2492e0adb4fa",
+      "name": "Tag Dettaglio Conversazione",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "IeYtJrmaQETG8BRn",
+          "name": "ElevenLaps EU - API"
+        }
+      },
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput",
+      "notes": "Fallback: parte solo se la lista non espone i tag e le conversazioni nel range sono sotto la soglia MAX_DETTAGLI."
+    },
+    {
+      "parameters": {
+        "jsCode": "/* ============================================================\n   TAG CONVERSAZIONI - passo 2: conteggi e merge nella risposta.\n   La risposta Directus resta identica: si aggiunge solo \"tags\".\n   ============================================================ */\nconst base = $('Aggregate Analysis').first().json || {};\n\nconst prep = $('Tag Prepara').first().json || {};\nconst riepilogo = prep.riepilogo || {};\n\n/* stessa estrazione del nodo \"Tag Prepara\", qui applicata al dettaglio */\nconst CHIAVI_TAG = /^(tags|tag|labels|conversation_tags|conversation_labels)$/i;\nconst SALTA = new Set(['transcript', 'messages', 'audio', 'transcript_summary']);\n\nfunction normalizzaTag(v, prof){\n  prof = prof || 0;\n  if (v == null || prof > 3) return [];\n  if (typeof v === 'string'){\n    const s = v.trim();\n    if (!s) return [];\n    if (s.startsWith('[') || s.startsWith('{')){\n      try { return normalizzaTag(JSON.parse(s), prof + 1); } catch(e){}\n    }\n    return s.split(',').map(x => x.trim()).filter(Boolean);\n  }\n  if (Array.isArray(v)) return v.flatMap(x => normalizzaTag(x, prof + 1));\n  if (typeof v === 'object'){\n    const n = v.name ?? v.tag ?? v.label ?? v.value ?? v.tag_name ?? v.title;\n    return n == null ? [] : normalizzaTag(String(n), prof + 1);\n  }\n  return [];\n}\nfunction cercaTag(obj, prof, trovati, chiavi){\n  prof = prof || 0;\n  if (!obj || typeof obj !== 'object' || prof > 4) return;\n  for (const k of Object.keys(obj)){\n    if (SALTA.has(k)) continue;\n    const v = obj[k];\n    if (CHIAVI_TAG.test(k)){\n      const t = normalizzaTag(v);\n      if (t.length){ trovati.push(...t); chiavi.add(k); }\n      continue;\n    }\n    if (v && typeof v === 'object') cercaTag(v, prof + 1, trovati, chiavi);\n  }\n}\nfunction tagDi(obj, chiavi){\n  const trovati = [];\n  cercaTag(obj, 0, trovati, chiavi);\n  const visti = new Map();\n  for (const t of trovati){\n    const k = String(t).trim().toLowerCase();\n    if (k && !visti.has(k)) visti.set(k, String(t).trim());\n  }\n  return [...visti.values()];\n}\n\nconst conversazioni = Array.isArray(riepilogo.conversazioni)\n  ? riepilogo.conversazioni.map(c => ({ id: c.id, unix: c.unix, tags: [...(c.tags || [])] }))\n  : [];\n\n/* merge dei tag letti dal dettaglio, quando il fallback e' scattato */\nconst chiavi = new Set(riepilogo.diag?.campi_tag || []);\nfunction dettagli(){ try { return $('Tag Dettaglio Conversazione').all().map(x => x.json); } catch(e){ return []; } }\n\nconst indice = new Map(conversazioni.map(c => [c.id, c]));\nlet dettagliLetti = 0, chiaviDettaglio = [];\nfor (const d of dettagli()){\n  if (!d || typeof d !== 'object') continue;\n  const id = d.conversation_id || d.id;\n  if (!id) continue;\n  dettagliLetti++;\n  if (!chiaviDettaglio.length) chiaviDettaglio = Object.keys(d).slice(0, 40);\n  const t = tagDi(d, chiavi);\n  const c = indice.get(id);\n  if (c && t.length) c.tags = [...new Set([...c.tags, ...t])];\n}\n\n/* ---------- conteggi ----------\n   Una conversazione puo' avere piu' tag: \"items\" conta le assegnazioni,\n   non le conversazioni. \"untagged\" conta invece conversazioni intere,\n   ed e' la fetta \"Senza tag\" della torta. */\nconst conteggi = new Map();\nlet conTag = 0, assegnazioni = 0, multiTag = 0;\nfor (const c of conversazioni){\n  const t = c.tags || [];\n  if (!t.length) continue;\n  conTag++;\n  if (t.length > 1) multiTag++;\n  for (const x of t){\n    conteggi.set(x, (conteggi.get(x) || 0) + 1);\n    assegnazioni++;\n  }\n}\n\nconst items = [...conteggi.entries()]\n  .map(([tag, count]) => ({ tag, count, share: assegnazioni ? count / assegnazioni : null }))\n  .sort((a, b) => (b.count - a.count) || a.tag.localeCompare(b.tag, 'it'));\n\nconst disponibile = riepilogo.ha_risposto === true;\n\nconst tags = disponibile ? {\n  available: true,\n  source: 'elevenlabs',\n  basis: 'conversazioni ElevenLabs con avvio nel range selezionato',\n  range: riepilogo.range || null,\n  conversations_total: conversazioni.length,\n  conversations_with_tags: conTag,\n  untagged: conversazioni.length - conTag,\n  multi_tag_conversations: multiTag,\n  assignments_total: assegnazioni,\n  distinct_tags: items.length,\n  items,\n  diag: Object.assign({}, riepilogo.diag, {\n    dettagli_letti: dettagliLetti,\n    campi_tag: [...chiavi],\n    chiavi_dettaglio: chiaviDettaglio\n  })\n} : {\n  available: false,\n  source: 'elevenlabs',\n  error: 'ElevenLabs non ha restituito la lista conversazioni',\n  range: riepilogo.range || null,\n  diag: riepilogo.diag || null\n};\n\nreturn [{ json: Object.assign({}, base, { tags }) }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2680,
+        -300
+      ],
+      "id": "2b1d38a4-3ba5-4373-9978-7c8a4c5f0a9b",
+      "name": "Tag Aggrega"
     }
   ],
   "connections": {
@@ -382,7 +525,7 @@
       "main": [
         [
           {
-            "node": "Respond OK",
+            "node": "Tag Lista ElevenLabs",
             "type": "main",
             "index": 0
           }
@@ -390,6 +533,68 @@
         [
           {
             "node": "Respond Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tag Lista ElevenLabs": {
+      "main": [
+        [
+          {
+            "node": "Tag Prepara",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tag Prepara": {
+      "main": [
+        [
+          {
+            "node": "Tag Serve Dettaglio?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tag Serve Dettaglio?": {
+      "main": [
+        [
+          {
+            "node": "Tag Dettaglio Conversazione",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Tag Aggrega",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tag Dettaglio Conversazione": {
+      "main": [
+        [
+          {
+            "node": "Tag Aggrega",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tag Aggrega": {
+      "main": [
+        [
+          {
+            "node": "Respond OK",
             "type": "main",
             "index": 0
           }

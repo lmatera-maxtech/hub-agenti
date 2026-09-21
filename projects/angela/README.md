@@ -24,3 +24,18 @@ La password Analisi resta client-side (`maxtech`) e non è sicurezza server-side
 
 ## Integrità dataset
 Gli endpoint confrontano il numero di righe ricevute con un count Directus sullo stesso range. Se non coincide, rispondono errore 503 e non restituiscono KPI.
+
+## Tag conversazione (ElevenLabs) — aggiunta
+
+La tab Analisi ha in fondo il box **Distribuzione dei tag**: grafico a torta dei tag delle conversazioni ElevenLabs con avvio nel range selezionato. È l'**unica eccezione** alla regola "solo Directus" di questa dashboard.
+
+Nel workflow `n8n/dashboard-analisi.json` la catena tag sta **dopo** `Data Valid?` (ramo true) e prima di `Respond OK`:
+
+```text
+Data Valid? → Tag Lista ElevenLabs → Tag Prepara → Tag Serve Dettaglio? → (Tag Dettaglio Conversazione) → Tag Aggrega → Respond OK
+```
+
+- Credenziale header richiesta: `ElevenLaps EU - API` (la stessa dei flussi live).
+- Agente letto: `agent_9101kx660zetfe6a1b9t9rgqkhfk`.
+- La catena è **non bloccante**: se ElevenLabs non risponde, `tags.available=false` e tutti i KPI Directus restano identici.
+- `Tag Aggrega` aggiunge solo la chiave `tags` alla risposta: nessun KPI esistente è stato toccato.

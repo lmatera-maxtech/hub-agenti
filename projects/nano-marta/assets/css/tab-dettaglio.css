@@ -307,3 +307,10 @@
 }
 
 @media(prefers-reduced-motion:reduce){#panelDettaglio *{animation:none!important;transition:none!important}}
+
+/* ---------- pannello tag conversazione (ElevenLabs) ---------- */
+#panelDettaglio .analysis-tagpanel{background:var(--an-panel);border:1px solid var(--an-soft);border-radius:14px;padding:16px 15px}
+#panelDettaglio .analysis-tagpanel .tagpie-foot{border-top:1px solid var(--an-soft);padding-top:10px}
+@media (max-width:760px){
+  #panelDettaglio .analysis-tagpanel{padding:13px 12px}
+}

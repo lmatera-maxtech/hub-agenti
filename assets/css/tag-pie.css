@@ -1,0 +1,108 @@
+/* ============================================================
+   tag-pie.css - grafico a torta dei TAG conversazione
+   Condiviso da NANO Marta e Angela. Usa solo colori propri o
+   fallback, cosi' non dipende dai token del singolo progetto.
+   ============================================================ */
+
+.tagpie{
+  display:grid;
+  grid-template-columns:auto minmax(0,1fr);
+  gap:22px;
+  align-items:center;
+}
+
+/* ---------- grafico ---------- */
+.tagpie-chart{ position:relative; width:170px; height:170px; flex:0 0 auto; }
+.tagpie-svg{ width:100%; height:100%; display:block; }
+.tagpie-slice{ transition:opacity .15s ease, stroke-width .15s ease; }
+.tagpie-hl .tagpie-slice{ opacity:.28; }
+.tagpie-hl .tagpie-slice.on{ opacity:1; }
+
+.tagpie-center{
+  position:absolute; inset:0;
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  text-align:center; pointer-events:none;
+}
+.tagpie-center b{
+  font-size:23px; font-weight:800; letter-spacing:-.02em;
+  color:var(--an-txt, var(--txt, var(--text, #EDE9E1)));
+  font-variant-numeric:tabular-nums;
+}
+.tagpie-center span{
+  font-size:10px; margin-top:3px;
+  color:var(--an-faint, var(--faint, #8B6D85));
+}
+
+/* ---------- colonna destra ---------- */
+.tagpie-side{ display:flex; flex-direction:column; gap:9px; min-width:0; }
+
+.tagpie-tools{
+  display:flex; align-items:center; justify-content:space-between;
+  gap:10px; flex-wrap:wrap;
+}
+.tagpie-selinfo{
+  font-size:10.5px; letter-spacing:.04em; text-transform:uppercase; font-weight:700;
+  color:var(--an-faint, var(--faint, #8B6D85));
+}
+.tagpie-actions{ display:flex; gap:6px; }
+.tagpie-actions button{
+  font:inherit; font-size:10.5px; font-weight:700; cursor:pointer;
+  padding:5px 10px; border-radius:999px;
+  border:1px solid var(--an-border, var(--border, rgba(199,171,193,.16)));
+  background:rgba(237,233,225,.04);
+  color:var(--an-dim, var(--dim, #C7ABC1));
+}
+.tagpie-actions button:hover{ border-color:rgba(230,6,225,.45); color:#fff; }
+
+/* ---------- legenda cliccabile ---------- */
+.tagpie-legend{
+  display:flex; flex-direction:column; gap:5px;
+  max-height:260px; overflow-y:auto; padding-right:2px;
+}
+.tagpie-item{
+  display:grid;
+  grid-template-columns:11px minmax(0,1fr) auto auto;
+  align-items:center; gap:10px;
+  width:100%; text-align:left; cursor:pointer;
+  font:inherit; font-size:12px;
+  padding:7px 10px; min-height:36px;
+  border-radius:9px;
+  border:1px solid transparent;
+  background:rgba(237,233,225,.035);
+  color:var(--an-txt, var(--txt, var(--text, #EDE9E1)));
+  transition:background .14s ease, border-color .14s ease, opacity .14s ease;
+}
+.tagpie-item:hover{
+  background:rgba(237,233,225,.075);
+  border-color:var(--an-border, var(--border, rgba(199,171,193,.16)));
+}
+.tagpie-item:focus-visible{ outline:2px solid var(--accent, #E606E1); outline-offset:2px; }
+.tagpie-item i{ width:11px; height:11px; border-radius:4px; display:block; }
+.tagpie-name{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.tagpie-pct{ font-variant-numeric:tabular-nums; font-weight:800; }
+.tagpie-num{
+  font-variant-numeric:tabular-nums; font-size:11px; min-width:34px; text-align:right;
+  color:var(--an-faint, var(--faint, #8B6D85));
+}
+.tagpie-item.off{ opacity:.42; }
+.tagpie-item.off i{ background:transparent !important; box-shadow:inset 0 0 0 2px currentColor; }
+.tagpie-item.off .tagpie-name{ text-decoration:line-through; }
+
+/* ---------- stati / piede ---------- */
+.tagpie-foot{
+  margin:12px 0 0; font-size:11px;
+  color:var(--an-faint, var(--faint, #8B6D85));
+}
+.tagpie-empty{ display:block; }
+.tagpie-msg{
+  margin:0; font-size:12px; padding:14px 2px;
+  color:var(--an-faint, var(--faint, #8B6D85));
+}
+
+@media (max-width:760px){
+  .tagpie{ grid-template-columns:1fr; justify-items:center; gap:16px; }
+  .tagpie-chart{ width:150px; height:150px; }
+  .tagpie-side{ width:100%; }
+  .tagpie-legend{ max-height:none; }
+  .tagpie-item{ min-height:42px; }
+}

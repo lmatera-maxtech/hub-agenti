@@ -313,6 +313,15 @@ window.TabDettaglio = (function(){
     root.innerHTML=ranked.map(r=>`<div class="analysis-rankrow"><div class="analysis-rankname">${r.label}</div><div class="analysis-rankval">${fmtNum(r.count)}</div><div class="analysis-rankpct">${fmtPct(r.share_non_handoff)}</div><div class="analysis-rankbar"><i style="width:${r.share_non_handoff==null?0:Math.max(3,(r.share_non_handoff/max)*100)}%"></i></div></div>`).join('');
   }
 
+  function renderTags(t,range){
+    const box=$('tagsBox');
+    if(!box) return;
+    const label=$('tagsRangeLabel');
+    if(label) label.textContent = range?.start && range?.end ? `${fmtDate(range.start)} → ${fmtDate(range.end)}` : '—';
+    if(window.MaxTechTagPie) window.MaxTechTagPie.render(box,t);
+    else box.innerHTML='<div class="analysis-muted">Componente grafico tag non caricato.</div>';
+  }
+
   function renderQuality(q){
     q=q||{};
     const ws=Array.isArray(q.warnings)?q.warnings:[];
@@ -341,6 +350,7 @@ window.TabDettaglio = (function(){
     chart(d.trend_days_data);
     renderDays(d.trend_days_data);
     renderRangeBlocks(d.range_dropoff);
+    renderTags(d.tags,d.analysis_range);
     renderQuality(d.data_quality);
   }
 
