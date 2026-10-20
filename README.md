@@ -121,16 +121,12 @@ Se `tags.diag.catalogo.voci_catalogo` è 0, nessuno dei candidati è quello gius
 
 ## Raccolta dati · NANO Marta (v1.4)
 
-La tab **Analisi** di NANO Marta ha una nuova sezione **Raccolta dati per campo**, tra *Andamento nel tempo* e *Tag*. Usa lo stesso range della tab.
+La tab **Analisi** di NANO Marta ha la sezione **Analisi dei campi di raccolta dati**, tra *Andamento nel tempo* e *Tag*. Usa lo stesso range della tab.
 
 - Fonte: tabella Directus `data_collection_log` (`data_collection_id`, `value`, `data_collection_explanation`), letta tramite `call_log_details.data_collection_logs` (agente `agent_2001ktnse3bre338wc0s7zzg2v6c`).
-- Solo id **senza prefisso agente** (es. `voicemail_detected`); `marta_*`, `valentina*`, `marco*` esclusi già nel workflow.
-- In alto un selettore con tutti gli id del periodo (chiamate in cui compaiono e %). Sotto, la scheda dell'id selezionato:
-  - descrizione del campo (`data_collection_explanation`) e tipo riconosciuto (Sì/No, numero, tempo, valori, testo);
-  - 4 numeri: presente in, valorizzato, vuoto, Sì % / mediana / valore più frequente;
-  - **Valori registrati**: barre orizzontali con conteggio e % sulle chiamate valorizzate;
-  - **Andamento giornaliero**: % di Sì, media o % del valore principale per giorno (tooltip con i volumi);
-  - **Ultime 5 chiamate** con quel campo (data, conversation_id, value), richiudibile.
+- Solo id **senza prefisso agente** (es. `esito`, `comportamento_cliente`); `marta_*`, `valentina*`, `marco*` esclusi già nel workflow.
+- Vista minima: selettore dei campi; per il campo scelto la prima frase della descrizione e la tabella valore → chiamate → % sulle chiamate del periodo, dal più frequente.
+- Filtro **"Solo chiamate con esito"**: ricalcola la tabella del campo scelto solo sulle chiamate con quell'esito (usa gli incroci `data_collection.cross[campo].esito` del workflow; non disponibile per campi con più di 40 valori diversi).
 
 Workflow n8n: `projects/nano-marta/n8n/dashboard-marta-dettaglio.json` → **v1.9**. Rispetto alla v1.8 aggiunge in coda 2 nodi, il resto è invariato:
 
