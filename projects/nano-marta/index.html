@@ -10,6 +10,7 @@
 <link href="assets/css/base.css" rel="stylesheet"/>
 <link href="assets/css/tab-live.css" rel="stylesheet"/>
 <link href="assets/css/tab-dettaglio.css" rel="stylesheet"/>
+<link href="assets/css/data-collection.css" rel="stylesheet"/>
 <link href="../../assets/css/maxtech-shell.css" rel="stylesheet"/>
 <link href="../../assets/css/tag-pie.css" rel="stylesheet"/>
 </head>
@@ -126,6 +127,7 @@
 <button type="button" data-scroll="an-sec-funnel">Funnel</button>
 <button type="button" data-scroll="an-sec-blocks">Blocchi</button>
 <button type="button" data-scroll="an-sec-trend">Trend</button>
+<button type="button" data-scroll="an-sec-datacoll">Raccolta dati</button>
 <button type="button" data-scroll="an-sec-tags">Tag</button>
 </nav>
 <section class="analysis-section" id="an-sec-calls">
@@ -196,6 +198,11 @@
 <div class="analysis-rankpanel"><h4>Blocchi principali del periodo</h4><div class="analysis-note">Ordinati per incidenza sulle chiamate che non arrivano alla richiesta operatore.</div><div id="rangeBlocks"></div></div>
 </div>
 </section>
+<section class="analysis-section" id="an-sec-datacoll">
+<div class="analysis-sechead"><div class="analysis-sectitle"><span class="analysis-viewtag">Raccolta dati · Directus</span><h3>Raccolta dati per campo</h3><p>Scegli un data_collection_id: vedi cosa misura, quanti valori sono stati salvati, come si distribuiscono e come cambiano giorno per giorno.</p></div><p id="dcRangeLabel">—</p></div>
+<div id="dcBox"></div>
+<div class="analysis-note">Fonte: tabella Directus <b>data_collection_log</b> (colonne <code>data_collection_id</code>, <code>value</code>, <code>data_collection_explanation</code>). Solo id senza prefisso <code>marta_</code>, <code>valentina</code> o <code>marco</code>; i nuovi compaiono in automatico.</div>
+</section>
 <section class="analysis-section" id="an-sec-tags">
 <div class="analysis-sechead"><div class="analysis-sectitle"><span class="analysis-viewtag">Tag conversazione · ElevenLabs</span><h3>Distribuzione dei tag</h3><p>Tag assegnati alle conversazioni ElevenLabs con avvio nel range selezionato. Clicca un tag per escluderlo: le percentuali si ricalcolano sui soli tag selezionati.</p></div><p id="tagsRangeLabel">—</p></div>
 <div class="analysis-tagpanel"><div id="tagsBox"></div></div>
@@ -216,6 +223,7 @@
 <script src="assets/js/utils.js"></script>
 <script src="assets/js/tab-live.js"></script>
 <script src="../../assets/js/tag-pie.js"></script>
+<script src="assets/js/data-collection.js"></script>
 <script src="assets/js/tab-dettaglio.js"></script>
 <script src="assets/js/app.js"></script>
 <script src="../../assets/js/maxtech-shell.js"></script>

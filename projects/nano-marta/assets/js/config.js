@@ -16,7 +16,7 @@ window.CONFIG = {
     // workflow: n8n/dashboard-marta-dettaglio.json
     endpoint:  "https://n8n-poc.massimaenergia.it/webhook/dashboard-marta-nano",
     pollMs:    300000,   // 5 minuti
-    timeoutMs: 15000,
+    timeoutMs: 30000,    // v1.9: +1 query Directus (raccolta dati)
     maxRangeDays: 90,
 
     /* Accesso alla tab Analisi.

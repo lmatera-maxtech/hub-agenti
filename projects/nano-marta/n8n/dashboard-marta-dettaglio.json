@@ -1,5 +1,5 @@
 {
-  "name": "Marta Dashboard - Tab Analisi NANO v1.8 (Tag ElevenLabs)",
+  "name": "Marta Dashboard - Tab Analisi NANO v1.9 (Tag + Raccolta dati)",
   "nodes": [
     {
       "parameters": {
@@ -144,7 +144,7 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
       "position": [
-        1820,
+        2260,
         0
       ]
     },
@@ -315,6 +315,56 @@
       ],
       "id": "9f2abaaf-a37a-44e3-bd4a-d1fca0112ce4",
       "name": "Tag Aggrega"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.DIRECTUS_ENDPOINT }}/graphql",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $env.DIRECTUS_TOKEN }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"query\": \"query DashboardDataCollection { call_log_details( limit: -1 filter: { agent_id: { _eq: \\\"agent_2001ktnse3bre338wc0s7zzg2v6c\\\" } date_created: { _gte: \\\"{{ $('Prep Range').item.json.query_from }}\\\" _lt: \\\"{{ $('Prep Range').item.json.query_to }}\\\" } } ) { conversation_id date_created data_collection_logs( limit: -1 ) { data_collection_id value data_collection_explanation } } }\"\n}",
+        "options": {
+          "timeout": 15000,
+          "response": {
+            "response": {
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "4969c3e6-1270-4aaf-9ff2-8fda16d4c427",
+      "name": "Query Data Collection",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1820,
+        0
+      ],
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "/* ============================================================\n   RACCOLTA DATI - aggrega data_collection_log per data_collection_id.\n   Fonte: Directus, tabella data_collection_log letta tramite la\n   relazione call_log_details.data_collection_logs (stesso filtro\n   agente NANO Marta + stesso range della tab).\n   La risposta resta identica: si aggiunge solo \"data_collection\".\n   ============================================================ */\nconst base = $('Tag Aggrega').first().json || {};\nconst meta = $('Prep Range').first().json || {};\nconst TZ = 'Europe/Rome';\n\nfunction localDay(value){\n  if (!value) return null;\n  const s = String(value);\n  if (/^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}/.test(s) && !/[zZ]$|[+-]\\d{2}:\\d{2}$/.test(s)) return s.slice(0,10);\n  const d = new Date(value);\n  if (Number.isNaN(d.getTime())) return null;\n  const p = {};\n  new Intl.DateTimeFormat('en-CA', { timeZone:TZ, year:'numeric', month:'2-digit', day:'2-digit' })\n    .formatToParts(d).forEach(x => { if (x.type !== 'literal') p[x.type] = x.value; });\n  return `${p.year}-${p.month}-${p.day}`;\n}\nconst pct = (n,d) => d > 0 ? +((n/d)*100).toFixed(1) : null;\nconst r1  = v => v == null ? null : Math.round(v*10)/10;\n\nlet payload = {};\ntry { payload = $('Query Data Collection').first().json || {}; } catch(e){ payload = {}; }\nconst rows = payload?.data?.call_log_details;\n\nif (!Array.isArray(rows)){\n  const msg = Array.isArray(payload?.errors) && payload.errors[0]?.message\n    ? String(payload.errors[0].message)\n    : (payload?.error?.message || payload?.message || 'risposta Directus non valida');\n  const dc = { available:false, source:'directus.data_collection_log',\n               range:{ from:meta.range_start, to:meta.range_end }, error:msg, fields:[] };\n  const dq = base.data_quality || { warnings:[] };\n  (dq.warnings = dq.warnings || []).push({ code:'DATA_COLLECTION_UNAVAILABLE', severity:'warning',\n    message:'Raccolta dati (data_collection_log) non disponibile: ' + msg });\n  return [{ json: Object.assign({}, base, { data_collection: dc, data_quality: dq }) }];\n}\n\n/* ---------- chiamate del range (dedup per conversation_id, come il resto della tab) ---------- */\nconst calls = new Map();\nfor (const r of rows){\n  if (!r || !r.conversation_id) continue;\n  const day = localDay(r.date_created);\n  if (!day || day < meta.range_start || day > meta.range_end) continue;\n  const id = String(r.conversation_id);\n  const prev = calls.get(id);\n  if (!prev || (Date.parse(r.date_created || '') || 0) >= (Date.parse(prev.date_created || '') || 0)) calls.set(id, r);\n}\nconst totalCalls = calls.size;\nconst callDay = new Map();     // conversation_id -> giorno locale\nconst dayCalls = new Map();    // giorno -> chiamate\nfor (const [cid, c] of calls){\n  const d = localDay(c.date_created); callDay.set(cid, d);\n  dayCalls.set(d, (dayCalls.get(d) || 0) + 1);\n}\nfunction listDays(a, b){\n  const out = [];\n  let d = new Date(a + 'T00:00:00Z'); const end = new Date(b + 'T00:00:00Z');\n  while (d <= end){ out.push(d.toISOString().slice(0,10)); d = new Date(d.getTime() + 86400000); }\n  return out;\n}\nconst rangeDays = listDays(meta.range_start, meta.range_end);\n\n/* ---------- normalizzazione valori ---------- */\nconst VUOTI = new Set(['', 'null', 'none', 'undefined', 'n/a', 'na', 'nan']);\nfunction norm(v){\n  if (v === null || v === undefined) return null;\n  if (typeof v === 'boolean') return v;\n  if (typeof v === 'number') return Number.isFinite(v) ? v : null;\n  if (typeof v === 'object') { try { v = JSON.stringify(v); } catch(e){ return null; } }\n  const s = String(v).trim();\n  if (VUOTI.has(s.toLowerCase())) return null;\n  if (/^(true|false)$/i.test(s)) return s.toLowerCase() === 'true';\n  const n = Number(s.replace(',', '.'));\n  if (s !== '' && /^-?\\d+([.,]\\d+)?$/.test(s) && Number.isFinite(n)) return n;\n  return s;\n}\n\nfunction agentOf(id){\n  const s = id.toLowerCase();\n  if (s.startsWith('marta')) return 'marta';\n  if (s.startsWith('valentina')) return 'valentina';\n  if (s.startsWith('marco')) return 'marco';\n  return 'altro';\n}\n/* ---------- valori per campo: un valore per (chiamata, campo) ---------- */\nconst perField = new Map();   // id -> Map(conversation_id -> value)\nconst occurrences = new Map(); // id -> righe totali in data_collection_log\nconst rawVal = new Map();      // id -> Map(conversation_id -> valore grezzo, per gli esempi)\nconst descr = new Map();       // id -> data_collection_explanation (descrizione del campo su ElevenLabs)\nlet logRows = 0, duplicateRows = 0;\nfor (const [cid, c] of calls){\n  const logs = Array.isArray(c.data_collection_logs) ? c.data_collection_logs : [];\n  for (const l of logs){\n    if (!l || !l.data_collection_id) continue;\n    const fid = String(l.data_collection_id);\n    // Solo i campi SENZA prefisso agente (es. voicemail_detected):\n    // marta_*, valentina*, marco* sono esclusi da questa sezione.\n    if (agentOf(fid) !== 'altro') continue;\n    logRows++;\n    occurrences.set(fid, (occurrences.get(fid) || 0) + 1);\n    if (!perField.has(fid)) perField.set(fid, new Map());\n    const m = perField.get(fid);\n    const v = norm(l.value);\n    if (!rawVal.has(fid)) rawVal.set(fid, new Map());\n    const raw = l.value == null ? null : (typeof l.value === 'object' ? JSON.stringify(l.value) : String(l.value));\n    if (m.has(cid)){ duplicateRows++; if (v !== null){ m.set(cid, v); rawVal.get(fid).set(cid, raw); } }\n    else { m.set(cid, v); rawVal.get(fid).set(cid, raw); }\n    const ex = l.data_collection_explanation == null ? '' : String(l.data_collection_explanation).trim();\n    if (ex && !descr.has(fid)) descr.set(fid, ex);\n  }\n}\n\n/* ---------- classificazione campo ---------- */\nfunction labelOf(id){\n  let s = id.replace(/^(marta|valentina|marco)[_\\s-]*/i, '').replace(/[_-]+/g, ' ').trim();\n  if (!s) s = id;\n  return s.charAt(0).toUpperCase() + s.slice(1);\n}\nconst isDurationId = id => /(time|secs?|seconds|durat|tempo|_ms\\b)/i.test(id);\n\nfunction quantile(sorted, q){\n  if (!sorted.length) return null;\n  const pos = (sorted.length - 1) * q, lo = Math.floor(pos), hi = Math.ceil(pos);\n  return sorted[lo] + (sorted[hi] - sorted[lo]) * (pos - lo);\n}\nfunction stats(nums){\n  if (!nums.length) return null;\n  const s = [...nums].sort((a,b) => a-b);\n  return { n:s.length, mean:r1(s.reduce((a,b)=>a+b,0)/s.length), median:r1(quantile(s,.5)),\n           p90:r1(quantile(s,.9)), min:r1(s[0]), max:r1(s[s.length-1]) };\n}\n\nconst fields = [];\nfor (const [fid, m] of perField){\n  const vals = [...m.values()];\n  const filled = vals.filter(v => v !== null);\n  const nBool = filled.filter(v => typeof v === 'boolean').length;\n  const nNum  = filled.filter(v => typeof v === 'number').length;\n  const nf = filled.length;\n\n  let kind = 'categorical';\n  if (nf && nBool / nf >= 0.9) kind = 'boolean';\n  else if (nf && nNum / nf >= 0.9) kind = isDurationId(fid) ? 'duration' : 'count';\n\n  const counts = new Map();\n  const add = k => counts.set(k, (counts.get(k) || 0) + 1);\n  let buckets = [], st = null;\n\n  if (kind === 'boolean'){\n    for (const v of filled) add(v === true ? 'true' : v === false ? 'false' : 'other');\n    buckets = [['true','Sì'],['false','No'],['other','Altro valore']]\n      .map(([key,label]) => ({ key, label, count:counts.get(key) || 0 }));\n  } else if (kind === 'count'){\n    const nums = filled.filter(v => typeof v === 'number');\n    for (const v of filled){\n      if (typeof v !== 'number' || v < 0) { add('other'); continue; }\n      const n = Math.round(v);\n      add(n >= 4 ? '4+' : String(n));\n    }\n    buckets = [['0','0'],['1','1'],['2','2'],['3','3'],['4+','4 o più'],['other','Altro valore']]\n      .map(([key,label]) => ({ key, label, count:counts.get(key) || 0 }));\n    st = stats(nums);\n  } else if (kind === 'duration'){\n    const nums = filled.filter(v => typeof v === 'number' && v >= 0);\n    for (const v of filled){\n      if (typeof v !== 'number' || v < 0) { add('other'); continue; }\n      add(v < 10 ? 'd0' : v < 30 ? 'd1' : v < 60 ? 'd2' : v < 120 ? 'd3' : 'd4');\n    }\n    buckets = [['d0','< 10s'],['d1','10–30s'],['d2','30–60s'],['d3','1–2 min'],['d4','> 2 min'],['other','Altro valore']]\n      .map(([key,label]) => ({ key, label, count:counts.get(key) || 0 }));\n    st = stats(nums);\n  } else {\n    // valori testuali: TUTTI i valori distinti, dal piu' frequente (tetto di sicurezza 300)\n    for (const v of filled) add(String(v));\n    const MAX_VALORI = 300;\n    const sorted = [...counts.entries()].sort((a,b) => (b[1]-a[1]) || a[0].localeCompare(b[0],'it'));\n    const top = sorted.slice(0, MAX_VALORI), rest = sorted.slice(MAX_VALORI);\n    buckets = top.map(([k,c]) => ({ key:'v:' + k, label:k.length > 300 ? k.slice(0,297) + '…' : k, count:c }));\n    const restCount = rest.reduce((a,[,c]) => a + c, 0);\n    if (restCount) buckets.push({ key:'other', label:`Altri ${rest.length} valori (oltre i primi ${MAX_VALORI})`, count:restCount });\n    if (counts.size > 12 && counts.size / Math.max(1,nf) > 0.5) kind = 'text';\n  }\n  buckets = buckets.filter(b => b.count > 0);\n  const distinctValues = kind === 'categorical' || kind === 'text' ? counts.size : null;\n\n  /* chiave di bucket per un singolo valore (stessa logica dei conteggi) */\n  const topKeys = new Set(buckets.map(b => b.key));\n  // nell'andamento giornaliero per i testi bastano i 5 valori principali (payload leggero)\n  const dailyKeys = new Set(buckets.slice(0,5).map(b => b.key));\n  function keyOf(v){\n    if (v === null) return null;\n    if (kind === 'boolean') return v === true ? 'true' : v === false ? 'false' : 'other';\n    if (kind === 'count'){ if (typeof v !== 'number' || v < 0) return 'other'; const n = Math.round(v); return n >= 4 ? '4+' : String(n); }\n    if (kind === 'duration'){ if (typeof v !== 'number' || v < 0) return 'other'; return v < 10 ? 'd0' : v < 30 ? 'd1' : v < 60 ? 'd2' : v < 120 ? 'd3' : 'd4'; }\n    const k = 'v:' + String(v); return topKeys.has(k) ? k : 'other';\n  }\n\n  /* andamento giornaliero: n = chiamate del giorno, p = con l'id, f = valorizzate,\n     b = conteggi per valore, m = media (solo numerici) */\n  const perDay = new Map(rangeDays.map(d => [d, { d, n: dayCalls.get(d) || 0, p:0, f:0, b:{}, s:0, c:0 }]));\n  for (const [cid, v] of m){\n    const x = perDay.get(callDay.get(cid)); if (!x) continue;\n    x.p++;\n    if (v === null) continue;\n    x.f++;\n    let k = keyOf(v);\n    if ((kind === 'categorical' || kind === 'text') && !dailyKeys.has(k)) k = 'other';\n    x.b[k] = (x.b[k] || 0) + 1;\n    if (typeof v === 'number'){ x.s += v; x.c++; }\n  }\n  const daily = [...perDay.values()].map(x => ({ d:x.d, n:x.n, p:x.p, f:x.f, b:x.b, m: x.c ? r1(x.s / x.c) : null }));\n\n  /* ultime 5 chiamate con questo id */\n  const rv = rawVal.get(fid) || new Map();\n  const recent = [...m.keys()]\n    .map(cid => ({ conversation_id: cid, date_created: calls.get(cid)?.date_created || null, value: rv.get(cid) ?? null }))\n    .sort((a,b) => (Date.parse(b.date_created || '') || 0) - (Date.parse(a.date_created || '') || 0))\n    .slice(0, 5);\n\n  const withRow = m.size;\n  const empty = withRow - nf;\n  const missing = Math.max(0, totalCalls - withRow);\n  fields.push({\n    id: fid,\n    agent: agentOf(fid),\n    label: labelOf(fid),\n    description: descr.get(fid) || null,\n    kind,\n    distinct_values: distinctValues,\n    calls_total: totalCalls,\n    occurrences: occurrences.get(fid) || 0,   // righe in data_collection_log\n    calls_with_row: withRow,                  // chiamate in cui l'id compare\n    calls_with_row_pct: pct(withRow, totalCalls),\n    calls_with_value: nf,\n    empty_count: empty,\n    missing_count: missing,\n    coverage_pct: pct(nf, totalCalls),\n    buckets: buckets.map(b => ({ ...b, pct_total: pct(b.count, totalCalls), pct_filled: pct(b.count, nf) })),\n    stats: st,\n    daily,\n    recent\n  });\n}\n\n// dal data_collection_id piu' frequente al meno frequente\nfields.sort((a,b) => (b.calls_with_row - a.calls_with_row) || a.id.localeCompare(b.id,'it'));\n\nconst callsWithAny = [...calls.values()].filter(c => (c.data_collection_logs || []).some(l => l && l.data_collection_id && agentOf(String(l.data_collection_id)) === 'altro')).length;\n\nconst data_collection = {\n  available: true,\n  source: 'directus.data_collection_log',\n  basis: 'chiamate NANO Marta registrate in Directus nel range selezionato',\n  scope: 'solo data_collection_id senza prefisso agente (marta_/valentina/marco esclusi)',\n  range: { from: meta.range_start, to: meta.range_end },\n  calls_total: totalCalls,\n  calls_with_any_field: callsWithAny,\n  log_rows: logRows,\n  duplicate_rows: duplicateRows,\n  fields_total: fields.length,\n  fields\n};\n\nconst dq = base.data_quality || { warnings:[] };\nif (duplicateRows) (dq.warnings = dq.warnings || []).push({ code:'DATA_COLLECTION_DUPLICATES', severity:'info',\n  message:`Raccolta dati: ${duplicateRows} righe duplicate (stessa chiamata e stesso data_collection_id) unificate.` });\n\nreturn [{ json: Object.assign({}, base, { data_collection, data_quality: dq }) }];\n"
+      },
+      "id": "382ddf71-0b32-437b-8cfe-28056b1a7bf3",
+      "name": "Data Collection Aggrega",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2040,
+        0
+      ]
     }
   ],
   "pinData": {},
@@ -459,6 +509,28 @@
       ]
     },
     "Tag Aggrega": {
+      "main": [
+        [
+          {
+            "node": "Query Data Collection",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Query Data Collection": {
+      "main": [
+        [
+          {
+            "node": "Data Collection Aggrega",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Data Collection Aggrega": {
       "main": [
         [
           {

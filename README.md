@@ -118,3 +118,25 @@ tags.diag.chiavi_lista     → chiavi restituite dalla lista conversazioni
 ```
 
 Se `tags.diag.catalogo.voci_catalogo` è 0, nessuno dei candidati è quello giusto: aggiungi il path corretto in `Tag Catalogo Candidati` e i nomi compaiono senza altre modifiche.
+
+## Raccolta dati · NANO Marta (v1.4)
+
+La tab **Analisi** di NANO Marta ha una nuova sezione **Raccolta dati per campo**, tra *Andamento nel tempo* e *Tag*. Usa lo stesso range della tab.
+
+- Fonte: tabella Directus `data_collection_log` (`data_collection_id`, `value`, `data_collection_explanation`), letta tramite `call_log_details.data_collection_logs` (agente `agent_2001ktnse3bre338wc0s7zzg2v6c`).
+- Solo id **senza prefisso agente** (es. `voicemail_detected`); `marta_*`, `valentina*`, `marco*` esclusi già nel workflow.
+- In alto un selettore con tutti gli id del periodo (chiamate in cui compaiono e %). Sotto, la scheda dell'id selezionato:
+  - descrizione del campo (`data_collection_explanation`) e tipo riconosciuto (Sì/No, numero, tempo, valori, testo);
+  - 4 numeri: presente in, valorizzato, vuoto, Sì % / mediana / valore più frequente;
+  - **Valori registrati**: barre orizzontali con conteggio e % sulle chiamate valorizzate;
+  - **Andamento giornaliero**: % di Sì, media o % del valore principale per giorno (tooltip con i volumi);
+  - **Ultime 5 chiamate** con quel campo (data, conversation_id, value), richiudibile.
+
+Workflow n8n: `projects/nano-marta/n8n/dashboard-marta-dettaglio.json` → **v1.9**. Rispetto alla v1.8 aggiunge in coda 2 nodi, il resto è invariato:
+
+```text
+… → Tag Aggrega → Query Data Collection → Data Collection Aggrega → Respond to Webhook
+```
+
+La risposta aggiunge solo la chiave `data_collection`. Se la query fallisce la dashboard continua a funzionare e mostra un avviso nella sezione e in *Qualità dati*.
+Timeout frontend della tab Analisi portato da 15 a 30 secondi (`assets/js/config.js`).

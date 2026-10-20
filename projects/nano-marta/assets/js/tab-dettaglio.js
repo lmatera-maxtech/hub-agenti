@@ -322,6 +322,15 @@ window.TabDettaglio = (function(){
     else box.innerHTML='<div class="analysis-muted">Componente grafico tag non caricato.</div>';
   }
 
+  function renderDataCollection(dc,range){
+    const box=$('dcBox');
+    if(!box) return;
+    const label=$('dcRangeLabel');
+    if(label) label.textContent = range?.start && range?.end ? `${fmtDate(range.start)} → ${fmtDate(range.end)}` : '—';
+    if(window.MartaDataCollection) window.MartaDataCollection.render(box,dc);
+    else box.innerHTML='<div class="analysis-muted">Componente raccolta dati non caricato.</div>';
+  }
+
   function renderQuality(q){
     q=q||{};
     const ws=Array.isArray(q.warnings)?q.warnings:[];
@@ -350,6 +359,7 @@ window.TabDettaglio = (function(){
     chart(d.trend_days_data);
     renderDays(d.trend_days_data);
     renderRangeBlocks(d.range_dropoff);
+    renderDataCollection(d.data_collection,d.analysis_range);
     renderTags(d.tags,d.analysis_range);
     renderQuality(d.data_quality);
   }
